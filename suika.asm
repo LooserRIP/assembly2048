@@ -19,6 +19,7 @@ DATASEG
 	; |___|_| |_|\__\___|_|  |_| |_|\__,_|_|
 	;
 	internal_tempElement db 50 dup(0)
+	internal_testCounter dw 0
 
 	internal_primes dw 6e81h,78adh,2b27h,0a535h,266fh,88cfh,9e47h,241h,0c86bh,5e57h,7051h,0d3dh,0a457h,0e969h,0a5c5h,0fc41h,0c461h,0e6c5h
 		   dw 5fbdh,59f3h,5dfdh,2da9h,9debh,0d187h,3d1fh,8143h,2e37h,6011h,8f2dh,0db31h,50c9h,155fh,933dh,0c5fbh,0dac3h,0c3e9h,5b49h
@@ -73,8 +74,7 @@ DATASEG
 	
 	listID_board dw nullword
 	game_boardOffset dw nullword
-	game_availableBoardPositions dw 2, 16, 0
-								 db (16*2) dup(nullbyte)
+	listID_boardAvailable dw nullword
 
 CODESEG
 
@@ -478,6 +478,68 @@ proc ListGet ;Returns the offset of a list's element via an index
 	ret 2
 endp ListGet
 
+proc ListRemove ;Removes an element from a list via index, and collapses it.
+	; Parameters:
+	; - List ID
+	; - Index
+	push bp
+	mov bp, sp
+	push ax bx cx dx di si
+
+	listID equ [word ptr bp + 6]
+	index equ [word ptr bp + 4]
+	
+	; Get list info offset
+	mov bx, listID
+	shl bx, 3 ;every list info is 8 bytes exactly
+	add bx, offset lists_info ;this is now the list's info offset
+
+	mov cx, [word ptr bx+6]
+
+	cmp index, cx ;Make sure index is within list bounds, this also makes sure list count has to be >0
+	jae ListRemove_Fail
+
+	; Move the offset of the list
+	mov di, [word ptr bx]
+	; Get the element length
+	mov ax, [word ptr bx+2]
+
+	; Decrease the element count, then get it
+	dec [word ptr bx+6]
+	dec cx
+
+	mov bx, ax ;Save element length in bx
+
+	mul index ;Multiply it by the index
+	add di, ax ;DI = ListOffset + (ElementLength * Index) = ListElementReferenceOffset
+	mov si, di
+	add si, bx ;SI = ListGet(Index+1)
+
+	sub cx, index ;cx = element count - index - 1
+	ListRemove_Loop:
+		push cx ;nested loop
+		mov cx, bx ; cx = element length
+		ListRemove_LoopCopyByte:
+			mov al, [byte ptr si]
+			mov [byte ptr di], al ;Copy the index+1 element to index
+			inc di
+			inc si
+			loop ListRemove_LoopCopyByte
+		pop cx
+		loop ListRemove_Loop
+		
+	mov cx, bx
+	ListRemove_LoopDeleteByte:
+		mov [byte ptr di], nullbyte ;Copy the index+1 element to index
+		inc di
+		loop ListRemove_LoopDeleteByte
+
+	ListRemove_Fail:
+	pop si di dx cx bx ax
+	pop bp
+	ret 4
+endp ListRemove
+
 proc ExampleProcedure ;a perfect template of a good procedure :)
 	; parameters:
     ; - VALUE1: Some value
@@ -535,15 +597,17 @@ proc RenderFrame ;renders the screenbuffer over to the video memory
 endp RenderFrame
 
 proc RenderScreen ;Renders the game's objects onto the screen.
-	push ax bx cx dx
+	push ax bx cx dx si
 	call BufferClear
 	
 	;push offset sprite_1
 	;push 310 ;x
 	;push 10 ;y
 	;call BufferSprite
-	
-	mov cx, 20
+
+	push [word ptr listID_particles] ; List ID
+	call ListCount
+	pop cx
 	push [word ptr listID_particles] ; List ID
 	push 0 ; We start from the first element, index 0
 	call ListGet
@@ -566,9 +630,14 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 		push [word ptr bx+2] ;y
 		call BufferSprite
 		add bx, 8 ;element length is 8
-		loop RenderScreen_ParticleRenderLoop
+		dec cx
+		cmp cx, 0
+		jz RenderScreen_ParticleRenderLoopExit
+			mov si, [word ptr RenderScreen_ParticleRenderLoop]
+			jmp RenderScreen_ParticleRenderLoop
+		RenderScreen_ParticleRenderLoopExit:
 
-	pop dx cx bx ax
+	pop si dx cx bx ax
 	ret
 endp RenderScreen
 
@@ -719,24 +788,35 @@ endp InitializeParticles
 
 proc InitializeBoard ;Initializes the board variables
 	cmp [word ptr listID_board], nullword ;If the board list is null
-	jnz InitializeBoard_DontCreateList
+	jnz InitializeBoard_DontCreateListBoard
 		;Creating the list here
 		push 2 ;Every board tile needs a type, that's it, only 2.
 		push 16 ;Board is 4x4 - 16 tiles.
 		call ListCreate
 		pop [word ptr listID_board] ; List ID
-	InitializeBoard_DontCreateList:
+
+		push 2 
+		push 16 
+		call ListCreate ;Creating the same list as board, that hosts the indices that are available to spawn on
+		pop [word ptr listID_boardAvailable] ; List ID
+	InitializeBoard_DontCreateListBoard:
+	call GameSpawnTile
+	call GameSpawnTile
+
 	ret
 endp InitializeBoard
+
+proc GameSpawnTile ;Spawns a tile in a random position.
+	push ax bx cx dx di
+
+
+	pop di dx cx bx ax
+	ret
+endp GameSpawnTile
 
 start:
 	mov ax, @data
 	mov ds, ax
-	mov bx, offset sprite_1
-	mov ax, [word ptr bx]
-	inc ax
-	mov dx, [word ptr bx+2]
-	inc dx
 
 	mov ax, 0A000h
 	mov es, ax ; ES is now at the video memory
