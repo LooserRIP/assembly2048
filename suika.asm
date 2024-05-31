@@ -523,12 +523,14 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 		add [word ptr bx], 1h 
 		add [word ptr bx+2], 1h
 		cmp [word ptr bx], 320 ;X border detection
-		jb RenderScreen_ParticleDontWrapX
+		jl RenderScreen_ParticleDontWrapX
 			mov [word ptr bx], 0
+			sub [word ptr bx], 16
 		RenderScreen_ParticleDontWrapX:
 		cmp [word ptr bx+2], 200 ;Y border detection
-		jb RenderScreen_ParticleDontWrapY
-			mov [word ptr bx], 0
+		jl RenderScreen_ParticleDontWrapY
+			mov [word ptr bx+2], 0
+			sub [word ptr bx+2], 16
 		RenderScreen_ParticleDontWrapY:
 		push [word ptr bx] ;x
 		push [word ptr bx+2] ;y
@@ -558,7 +560,7 @@ proc AddSpriteToBuffer ;Adds a sprite to the buffer
 
 	mov ax, topLeftY
 	mov dx, 320
-	mul dx
+	imul dx
 	add ax, topLeftX
 	mov si, ax ;SI = (topLeftY * 320) + topLeftX
 
@@ -575,13 +577,24 @@ proc AddSpriteToBuffer ;Adds a sprite to the buffer
 
 	mov cx, 0
 	mov bx, 0
-	cmp topLeftX, 320
-	jae AddSpriteToBuffer_Exit
-	cmp topLeftY, 200
-	jae AddSpriteToBuffer_Exit
 	AddSpriteToBuffer_SetLoop:
 		mov al, [byte ptr di]
 		cmp al, 0
+		
+		mov dx, cx ;Whole DX part is for detecting if this sprite's width is overflowing
+		add dx, topLeftX
+		cmp dx, 320
+		jge AddSpriteToBuffer_SkipDraw
+		cmp dx, 0
+		jl AddSpriteToBuffer_SkipDraw
+
+		mov dx, bx ;Whole DX part is for detecting if this sprite's height is overflowing
+		add dx, topLeftY
+		cmp dx, 200
+		jge AddSpriteToBuffer_SkipDraw
+		cmp dx, 0
+		jl AddSpriteToBuffer_SkipDraw
+
 		jz AddSpriteToBuffer_SkipDraw
 			mov [byte ptr es:si], al
 			dec [byte ptr es:si]
@@ -591,32 +604,18 @@ proc AddSpriteToBuffer ;Adds a sprite to the buffer
 		inc di ;increase the sprite offset pointer
 		inc cx ;just some row detection, cx being width and dx being height
 
-		mov dx, cx ;Whole DX part is for detecting if this sprite's width is overflowing
-		add dx, topLeftX
-		cmp dx, 320
-		jae AddSpriteToBuffer_AddRowAndDI
 
 		cmp cx, spriteWidth
-		jb AddSpriteToBuffer_AddWidth
-		jmp AddSpriteToBuffer_AddRow
-		AddSpriteToBuffer_AddRowAndDI:
-			mov dx, spriteWidth
-			sub dx, cx
-			add di, dx
-		AddSpriteToBuffer_AddRow:
-		; CX = SpriteWidth, need to reset it and add a row
-			sub si, cx ;Take away the X si travelled
+		jl AddSpriteToBuffer_AddWidth
+			sub si, cx ;Take away the X si travelled, which is cx or spritewidth doesn't matter they're equal here
 			add si, 320 ;Add a row to si
 			mov cx, 0
 			inc bx
-
-			mov dx, bx ;Whole DX part is for detecting if this sprite's height is overflowing
-			add dx, topLeftY
-			cmp dx, 200
-			jae AddSpriteToBuffer_Exit
+			;cmp dx, 0
+			;jl AddSpriteToBuffer_Exit
 
 			cmp bx, spriteHeight
-			jb AddSpriteToBuffer_SetLoop
+			jl AddSpriteToBuffer_SetLoop
 			jmp AddSpriteToBuffer_Exit
 		AddSpriteToBuffer_AddWidth:
 		jmp AddSpriteToBuffer_SetLoop
@@ -665,13 +664,13 @@ proc InitializeParticles ;Initializes particles
 	mov cx, 10
 	mov bx, offset tempElement
 	InitializeParticles_Loop:
-		push 10
-		push 50
+		push 0
+		push 319
 		call NumberRandom
 		pop ax
 		mov [word ptr bx], ax ;PX
-		push 10
-		push 50
+		push 0
+		push 199
 		call NumberRandom
 		pop ax
 		mov [word ptr bx + 2], ax ;PY
