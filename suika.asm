@@ -73,6 +73,8 @@ DATASEG
 	
 	listID_board dw nullword
 	game_boardOffset dw nullword
+	game_availableBoardPositions dw 2, 16, 0
+								 db (16*2) dup(nullbyte)
 
 CODESEG
 
@@ -499,19 +501,19 @@ proc ExampleProcedure ;a perfect template of a good procedure :)
 endp ExampleProcedure
 
 
-proc ClearBuffer ;clears the screen buffer
+proc BufferClear ;clears the screen buffer
 	push ax bx cx di es
 	mov ax, ScreenBuffer
 	mov es, ax ;ES is now at the screen buffer
 	mov di, 0
 	mov cx, 32000
-	ClearBuffer_Loop:
+	BufferClear_Loop:
 		mov [word ptr es:di], 0505h
 		add di, 2
-	loop ClearBuffer_Loop
+	loop BufferClear_Loop
 	pop es di cx bx ax
 	ret
-endp ClearBuffer
+endp BufferClear
 
 proc RenderFrame ;renders the screenbuffer over to the video memory
 	push ax cx di ds si es
@@ -534,12 +536,12 @@ endp RenderFrame
 
 proc RenderScreen ;Renders the game's objects onto the screen.
 	push ax bx cx dx
-	call ClearBuffer
+	call BufferClear
 	
 	;push offset sprite_1
 	;push 310 ;x
 	;push 10 ;y
-	;call AddSpriteToBuffer
+	;call BufferSprite
 	
 	mov cx, 20
 	push [word ptr listID_particles] ; List ID
@@ -562,7 +564,7 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 		RenderScreen_ParticleDontWrapY:
 		push [word ptr bx] ;x
 		push [word ptr bx+2] ;y
-		call AddSpriteToBuffer
+		call BufferSprite
 		add bx, 8 ;element length is 8
 		loop RenderScreen_ParticleRenderLoop
 
@@ -570,7 +572,7 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 	ret
 endp RenderScreen
 
-proc AddSpriteToBuffer ;Adds a sprite to the buffer
+proc BufferSprite ;Adds a sprite to the buffer
 	; Parameters:
     ; - Sprite Offset
     ; - Top Left X
@@ -605,28 +607,28 @@ proc AddSpriteToBuffer ;Adds a sprite to the buffer
 
 	mov cx, 0
 	mov bx, 0
-	AddSpriteToBuffer_SetLoop:
+	BufferSprite_SetLoop:
 		mov al, [byte ptr di]
 		cmp al, 0
 		
 		mov dx, cx ;Whole DX part is for detecting if this sprite's width is overflowing
 		add dx, topLeftX
 		cmp dx, 320
-		jge AddSpriteToBuffer_SkipDraw
+		jge BufferSprite_SkipDraw
 		cmp dx, 0
-		jl AddSpriteToBuffer_SkipDraw
+		jl BufferSprite_SkipDraw
 
 		mov dx, bx ;Whole DX part is for detecting if this sprite's height is overflowing
 		add dx, topLeftY
 		cmp dx, 200
-		jge AddSpriteToBuffer_SkipDraw
+		jge BufferSprite_SkipDraw
 		cmp dx, 0
-		jl AddSpriteToBuffer_SkipDraw
+		jl BufferSprite_SkipDraw
 
-		jz AddSpriteToBuffer_SkipDraw
+		jz BufferSprite_SkipDraw
 			mov [byte ptr es:si], al
 			dec [byte ptr es:si]
-		AddSpriteToBuffer_SkipDraw:
+		BufferSprite_SkipDraw:
 
 		inc si ;increase the screen offset
 		inc di ;increase the sprite offset pointer
@@ -634,26 +636,26 @@ proc AddSpriteToBuffer ;Adds a sprite to the buffer
 
 
 		cmp cx, spriteWidth
-		jl AddSpriteToBuffer_AddWidth
+		jl BufferSprite_AddWidth
 			sub si, cx ;Take away the X si travelled, which is cx or spritewidth doesn't matter they're equal here
 			add si, 320 ;Add a row to si
 			mov cx, 0
 			inc bx
 			;cmp dx, 0
-			;jl AddSpriteToBuffer_Exit
+			;jl BufferSprite_Exit
 
 			cmp bx, spriteHeight
-			jl AddSpriteToBuffer_SetLoop
-			jmp AddSpriteToBuffer_Exit
-		AddSpriteToBuffer_AddWidth:
-		jmp AddSpriteToBuffer_SetLoop
-	AddSpriteToBuffer_Exit:
+			jl BufferSprite_SetLoop
+			jmp BufferSprite_Exit
+		BufferSprite_AddWidth:
+		jmp BufferSprite_SetLoop
+	BufferSprite_Exit:
 
 	pop si es di dx cx bx ax
 	add sp, 4
 	pop bp
 	ret 6
-endp AddSpriteToBuffer
+endp BufferSprite
 
 proc InitializePalette
 	mov si, offset rendering_palette
