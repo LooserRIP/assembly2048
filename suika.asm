@@ -14,11 +14,38 @@ DATASEG
 	listsInfo db 300 dup (00h)
 	listsAmount dw 0
 	listsOffset dw 0
-	mov ax, ScreenBuffer
-	mov es, ax
-	
-	sprite_1 db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,2,2,2,2,1,1,1,1,0,0,0,0,1,1,1,1,2,2,2,2,1,1,1,1,0,0,0,0,1,1,1,1,2,2,2,2,1,1,1,1,0,0,0,0,1,1,1,1,2,2,2,2,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+	listID_particles dw 0ffffh
 
+	primes dw 6e81h,78adh,2b27h,0a535h,266fh,88cfh,9e47h,241h,0c86bh,5e57h,7051h,0d3dh,0a457h,0e969h,0a5c5h,0fc41h,0c461h,0e6c5h
+		   dw 5fbdh,59f3h,5dfdh,2da9h,9debh,0d187h,3d1fh,8143h,2e37h,6011h,8f2dh,0db31h,50c9h,155fh,933dh,0c5fbh,0dac3h,0c3e9h,5b49h
+		   dw 6d2bh,417bh,2149h,4d81h,5e39h,3fbfh,0df69h,103dh,9287h,1c55h,0e183h,4badh,0a0f1h,0a5ddh,588dh,0bbdbh,905h,76f1h,0adf5h
+		   dw 19cfh,73bdh,4e9bh,0b82dh,3275h,6557h,7211h,2cffh,0dc9fh,8e01h,0f503h,0cdf1h,0fc29h,2f83h,0fbf3h,0a64bh,9da9h,2063h,329fh
+		   dw 9a61h,0d081h,6421h,6c59h,4f2dh,793fh,21d7h,773h,2813h,70f9h,238fh,0dd39h,0d343h,0e95h,22e5h,0dc61h,0f269h,9127h,3f1h,0d159h
+		   dw 0b3h,26bh,65e3h,0bd8fh,276dh,2e7fh,0cfc5h,0e171h,74e1h,0d42fh,1343h,55f3h,0c1e7h,0e98fh,0b9ddh,7bebh,97b7h,48efh,2aebh,98f9h
+		   dw 4f63h,7673h,410bh,80cbh,2a9dh,239h,6f79h,2e3h,949fh,143bh,0fdf3h,8021h,0dd7dh,77b3h,8eabh,52e5h,0afa3h,27efh,230bh,0b3a5h,3173h
+		   dw 1da5h,8d0dh,0f93bh,2029h,2419h,66cdh,2135h,40fh,0ac1h,5f77h,0f485h,0baa3h,0d315h,0f0d3h,4043h,0fb93h,0bcb9h,0f8ddh,0d945h,0e59h
+		   dw 2c5h,0a67h,3a1h,7703h,5c6fh,4d8dh,1b83h,110bh,8231h,135dh,616fh,40f9h,0bb9h,9f7h,259fh,0f79dh,8bd5h,599h,86c5h,0fa3fh,9fc1h,9733h
+		   dw 0f7bdh,4be9h,0abf5h,8d41h,0ca7fh,0b5h,0a597h,0e1bfh,0f257h,0efh,96fdh,47b1h,0a1a5h,0aba7h,93efh,6a91h,0eacbh,2351h,1e95h,2287h,0e5h,0d661h
+    primeCounter dw 0
+
+	palette db 96,58,91,51,29,39,255,255,255,255,252,117,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+              db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+	sprite_1 db 16,0,16,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 CODESEG
 
 
@@ -46,7 +73,7 @@ proc Delay
 	ret 2
 endp Delay
 
-proc ClampNumber ;takes a number and a max number and caps it off a minimum and maximum.
+proc NumberClamp ;takes a number and a max number and caps it off a minimum and maximum.
 	; parameters:
 	; - VALUE: input number
 	; - VALUE: minimum number
@@ -55,7 +82,7 @@ proc ClampNumber ;takes a number and a max number and caps it off a minimum and 
 	; - VALUE: capped number
 	push bp
 	mov bp, sp
-	push ax bx cx dx di
+	push ax
 
 	inputNumber equ [word ptr bp + 8]
 	minimumNumber equ [word ptr bp + 6]
@@ -63,21 +90,63 @@ proc ClampNumber ;takes a number and a max number and caps it off a minimum and 
 
     mov ax, inputNumber
     cmp ax, maximumNumber
-    jb ClampNumber_DontClamp1
+    jb NumberClamp_DontClamp1
         mov ax, maximumNumber
-    ClampNumber_DontClamp1:
+    NumberClamp_DontClamp1:
     cmp ax, minimumNumber
-    ja ClampNumber_DontClamp2
+    ja NumberClamp_DontClamp2
         mov ax, minimumNumber
-    ClampNumber_DontClamp2:
+    NumberClamp_DontClamp2:
     mov inputNumber, ax
 
-	pop di dx cx bx ax
+	pop ax
 	pop bp
 	ret 4
-endp ClampNumber
+endp NumberClamp
 
-proc ModNumber ;takes a number and a divisor and returns the modulo.
+proc NumberMin ;returns the lower value between 2 values
+	; parameters:
+	; - VALUE: Value1
+	; - VALUE: Value2
+	; returns:
+	; - VALUE: Minimum
+	push bp
+	mov bp, sp
+	push ax
+	value1 equ [word ptr bp + 6]
+	value2 equ [word ptr bp + 4]
+    mov ax, value2
+	cmp ax, value1
+	ja NumberMin_Skip
+    	mov value1, ax
+	NumberMin_Skip:
+	pop ax
+	pop bp
+	ret 2
+endp NumberMin
+
+proc NumberMax ;returns the larger value between 2 values
+	; parameters:
+	; - VALUE: Value1
+	; - VALUE: Value2
+	; returns:
+	; - VALUE: Maximum
+	push bp
+	mov bp, sp
+	push ax
+	value1 equ [word ptr bp + 6]
+	value2 equ [word ptr bp + 4]
+    mov ax, value2
+	cmp ax, value1
+	jb NumberMax_Skip
+    	mov value1, ax
+	NumberMax_Skip:
+	pop ax
+	pop bp
+	ret 2
+endp NumberMax
+
+proc NumberMod ;takes a number and a divisor and returns the modulo.
     ; formula: ((n - min) % max) + min
 	; parameters:
 	; - VALUE: input number
@@ -86,7 +155,7 @@ proc ModNumber ;takes a number and a divisor and returns the modulo.
 	; - VALUE: modulo'd number
 	push bp
 	mov bp, sp
-	push ax dx di
+	push ax dx
 
 	inputNumber equ [word ptr bp + 6]
 	divisor equ [word ptr bp + 4]
@@ -96,10 +165,49 @@ proc ModNumber ;takes a number and a divisor and returns the modulo.
     idiv divisor
     mov inputNumber, dx
 
-	pop di dx ax
+	pop dx ax
 	pop bp
 	ret 2
-endp ModNumber
+endp NumberMod
+
+proc NumberRandom ;takes a min & max, returns a random number
+    ; formula: ((clock * primes[primecounter])%(max-min))+min
+	; parameters:
+	; - VALUE: min
+	; - VALUE: max
+	; returns:
+	; - VALUE: random number
+	push bp
+	mov bp, sp
+	push ax bx cx dx es
+
+	min equ [word ptr bp + 6]
+	max equ [word ptr bp + 4]
+	
+	
+	mov ax, 40h
+	mov es, ax
+	mov ax, [word ptr es:6Ch]
+	mov bx, offset primes
+	add bx, [word ptr primeCounter]
+	mul [word ptr bx]
+	add ax, dx
+	mov dx, 0
+	mov bx, max
+	sub bx, min
+	div bx
+	add min, dx
+	
+	inc [word ptr primeCounter]
+	cmp [word ptr primeCounter], 200
+	jb NumberRandom_DontResetPrimeCounter
+		mov [word ptr primeCounter], 0
+	NumberRandom_DontResetPrimeCounter:
+
+	pop es dx cx bx ax
+	pop bp
+	ret 2
+endp NumberRandom
 
 proc ListCreate ;Creates a list to the allocation
 	; Parameters:
@@ -117,11 +225,11 @@ proc ListCreate ;Creates a list to the allocation
 	; Get list memory length
 	mov ax, elementLength
 	mul elementAllocationLength
-	add listsOffset, ax ;we do this little double thing so that listsOffsets gets permanently added to.
-	mov ax, listsOffset
+	add [word ptr listsOffset], ax ;we do this little double thing so that listsOffsets gets permanently added to.
+	mov ax, [word ptr listsOffset]
 
 	; Get lists amount
-	mov bx, listsAmount
+	mov bx, [word ptr listsAmount]
 	shl bx, 3 ;every list info is 8 bytes exactly
 	add bx, offset listsInfo ;this is now the list's info offset
 	mov [word ptr bx], ax ;move the allocation offset first things first
@@ -132,9 +240,9 @@ proc ListCreate ;Creates a list to the allocation
 	mov [word ptr bx + 6], 0 ;move the count, which is a 0
 
 	; We do this little trickery to return the ID of the newly created list.
-	mov ax, listsAmount
+	mov ax, [word ptr listsAmount]
 	mov elementLength, ax
-	inc listsAmount
+	inc [word ptr listsAmount]
 
 	pop di dx cx bx ax
 	pop bp
@@ -204,7 +312,7 @@ proc ListSet ;Sets an element in a list with an index and a reference.
 
 	pop si di dx cx bx ax
 	pop bp
-	ret
+	ret 6
 endp ListSet
 
 proc ListClear ;Clears a list
@@ -237,7 +345,7 @@ proc ListClear ;Clears a list
 
 	pop di dx cx bx ax
 	pop bp
-	ret
+	ret 2
 endp ListClear
 
 proc ListAdd ;Adds something to the list, wrapped around ListSet
@@ -266,10 +374,10 @@ proc ListAdd ;Adds something to the list, wrapped around ListSet
 
 	pop cx bx
 	pop bp
-	ret
+	ret 4
 endp ListAdd
 
-proc ListGet ;Returns 
+proc ListRetrieve ;Returns an element from a list via an index
 	; Parameters:
 	; - List ID
 	; - Element Reference
@@ -297,17 +405,47 @@ proc ListGet ;Returns
 	add di, ax ;DI = ListOffset + (ElementLength * Index) = ListElementReferenceOffset
 	mov si, elementReference ;SI = ElementReferenceOffset
 
-	ListGet_Loop: ;Setting byte by byte, because i'm an idiot and terribly scared of movsb
+	ListRetrieve_Loop: ;Setting byte by byte, because i'm an idiot and terribly scared of movsb
 		mov dl, [byte ptr di]
 		mov [byte ptr si], dl
 		inc di
 		inc si
-	loop ListGet_Loop
+	loop ListRetrieve_Loop
 
 
 	pop si di dx cx bx ax
 	pop bp
-	ret
+	ret 6
+endp ListRetrieve
+
+proc ListGet ;Returns the offset of a list's element via an index
+	; Parameters:
+	; - List ID
+	; - Index
+	push bp
+	mov bp, sp
+	push ax bx dx di
+
+	listID equ [word ptr bp + 6]
+	index equ [word ptr bp + 4]
+
+	; Get list info offset
+	mov bx, listID
+	shl bx, 3 ;every list info is 8 bytes exactly
+	add bx, offset listsInfo ;this is now the list's info offset
+
+	; Move the offset of the list
+	mov di, [word ptr bx]
+	; Get the element length
+	mov ax, [word ptr bx+2]
+
+	mul index ;Multiply it by the index
+	add di, ax ;DI = ListOffset + (ElementLength * Index) = ListElementReferenceOffset
+	mov listID, di
+
+	pop di dx bx ax
+	pop bp
+	ret 2
 endp ListGet
 
 proc ExampleProcedure ;a perfect template of a good procedure :)
@@ -340,7 +478,7 @@ proc ClearBuffer ;clears the screen buffer
 	mov di, 0
 	mov cx, 32000
 	ClearBuffer_Loop:
-		mov [word ptr es:di], 0002h
+		mov [word ptr es:di], 0505h
 		add di, 2
 	loop ClearBuffer_Loop
 	pop es di cx bx ax
@@ -348,7 +486,7 @@ proc ClearBuffer ;clears the screen buffer
 endp ClearBuffer
 
 proc RenderFrame ;renders the screenbuffer over to the video memory
-	push ax bx cx di ds si es
+	push ax cx di ds si es
 
 	mov ax, ScreenBuffer
 	mov ds, ax ; DS is now at the screen buffer
@@ -361,42 +499,216 @@ proc RenderFrame ;renders the screenbuffer over to the video memory
 	mov cx, (320*200) ;We wanna iterate 64k times for every pixel
 
 	rep movsb ;This does that shit
-	
-	pop es si ds di cx bx ax
+
+	pop es si ds di cx ax
 	ret
 endp RenderFrame
+
+proc RenderScreen ;Renders the game's objects onto the screen.
+	push ax bx cx dx
+	call ClearBuffer
+	
+	;push offset sprite_1
+	;push 310 ;x
+	;push 10 ;y
+	;call AddSpriteToBuffer
+	
+	mov cx, 10
+	push [word ptr listID_particles] ; List ID
+	push 0 ; We start from the first element, index 0
+	call ListGet
+	pop bx
+	RenderScreen_ParticleRenderLoop:
+		push offset sprite_1 ;sprite
+		add [word ptr bx], 1h 
+		add [word ptr bx+2], 1h
+		cmp [word ptr bx], 320 ;X border detection
+		jb RenderScreen_ParticleDontWrapX
+			mov [word ptr bx], 0
+		RenderScreen_ParticleDontWrapX:
+		cmp [word ptr bx+2], 200 ;Y border detection
+		jb RenderScreen_ParticleDontWrapY
+			mov [word ptr bx], 0
+		RenderScreen_ParticleDontWrapY:
+		push [word ptr bx] ;x
+		push [word ptr bx+2] ;y
+		call AddSpriteToBuffer
+		add bx, 8 ;element length is 8
+		loop RenderScreen_ParticleRenderLoop
+
+	pop dx cx bx ax
+	ret
+endp RenderScreen
+
+proc AddSpriteToBuffer ;Adds a sprite to the buffer
+	; Parameters:
+    ; - Sprite Offset
+    ; - Top Left X
+    ; - Top Left Y
+	push bp
+	mov bp, sp
+	sub sp, 4 ;Allocate some space for temporary variables
+	push ax bx cx dx di es si
+
+	spriteOffset equ [word ptr bp + 8]
+	topLeftX equ [word ptr bp + 6]
+	topLeftY equ [word ptr bp + 4]
+	spriteWidth equ [word ptr bp - 2]
+	spriteHeight equ [word ptr bp - 4]
+
+	mov ax, topLeftY
+	mov dx, 320
+	mul dx
+	add ax, topLeftX
+	mov si, ax ;SI = (topLeftY * 320) + topLeftX
+
+	mov ax, ScreenBuffer
+	mov es, ax ; ES is now at the screen buffer
+
+	mov di, spriteOffset
+
+	mov cx, [word ptr di]
+	mov spriteWidth, cx
+	mov cx, [word ptr di+2]
+	mov spriteHeight, cx
+	add di, 4
+
+	mov cx, 0
+	mov bx, 0
+	cmp topLeftX, 320
+	jae AddSpriteToBuffer_Exit
+	cmp topLeftY, 200
+	jae AddSpriteToBuffer_Exit
+	AddSpriteToBuffer_SetLoop:
+		mov al, [byte ptr di]
+		cmp al, 0
+		jz AddSpriteToBuffer_SkipDraw
+			mov [byte ptr es:si], al
+			dec [byte ptr es:si]
+		AddSpriteToBuffer_SkipDraw:
+
+		inc si ;increase the screen offset
+		inc di ;increase the sprite offset pointer
+		inc cx ;just some row detection, cx being width and dx being height
+
+		mov dx, cx ;Whole DX part is for detecting if this sprite's width is overflowing
+		add dx, topLeftX
+		cmp dx, 320
+		jae AddSpriteToBuffer_AddRowAndDI
+
+		cmp cx, spriteWidth
+		jb AddSpriteToBuffer_AddWidth
+		jmp AddSpriteToBuffer_AddRow
+		AddSpriteToBuffer_AddRowAndDI:
+			mov dx, spriteWidth
+			sub dx, cx
+			add di, dx
+		AddSpriteToBuffer_AddRow:
+		; CX = SpriteWidth, need to reset it and add a row
+			sub si, cx ;Take away the X si travelled
+			add si, 320 ;Add a row to si
+			mov cx, 0
+			inc bx
+
+			mov dx, bx ;Whole DX part is for detecting if this sprite's height is overflowing
+			add dx, topLeftY
+			cmp dx, 200
+			jae AddSpriteToBuffer_Exit
+
+			cmp bx, spriteHeight
+			jb AddSpriteToBuffer_SetLoop
+			jmp AddSpriteToBuffer_Exit
+		AddSpriteToBuffer_AddWidth:
+		jmp AddSpriteToBuffer_SetLoop
+	AddSpriteToBuffer_Exit:
+
+	pop si es di dx cx bx ax
+	add sp, 4
+	pop bp
+	ret 6
+endp AddSpriteToBuffer
+
+proc InitializePalette
+	mov si, offset palette
+	mov cx, 256
+	mov dx, 3C8h
+	mov al, 0
+	out dx, al
+	inc dx
+	InitializePalette_PalLoop:
+		mov al, [byte ptr si] ; Red
+		shr al, 2
+		out dx, al ; Send Red
+		mov al, [byte ptr si + 1] ; Green
+		shr al, 2
+		out dx, al ; Send Green
+		mov al, [byte ptr si + 2] ; Blue
+		shr al, 2
+		out dx, al ; Send Blue
+		add si, 3
+		loop InitializePalette_PalLoop
+	ret
+endp InitializePalette
+
+proc InitializeParticles ;Initializes particles
+	push ax bx cx dx di
+
+	cmp [word ptr listID_particles], 0ffffh ;If the particles list is null
+	jnz InitializeParticles_DontCreateList
+		;Creating the list here
+		push 8 ;Particles need PX, PY, VX, VY
+		push 10 ;Particle Amount, I only need 20 particles at once
+		call ListCreate
+		pop [word ptr listID_particles] ; List ID
+	InitializeParticles_DontCreateList:
+
+	mov cx, 10
+	mov bx, offset tempElement
+	InitializeParticles_Loop:
+		push 10
+		push 50
+		call NumberRandom
+		pop ax
+		mov [word ptr bx], ax ;PX
+		push 10
+		push 50
+		call NumberRandom
+		pop ax
+		mov [word ptr bx + 2], ax ;PY
+		mov [word ptr bx + 4], 0 ;VX
+		mov [word ptr bx + 6], 0 ;VY
+		push [word ptr listID_particles] ; List ID
+		push bx ; Element Offset
+		call ListAdd
+		loop InitializeParticles_Loop
+
+	pop di dx cx bx ax
+	ret
+endp InitializeParticles
 
 start:
 	mov ax, @data
 	mov ds, ax
+	mov bx, offset sprite_1
+	mov ax, [word ptr bx]
+	inc ax
+	mov dx, [word ptr bx+2]
+	inc dx
+
+	mov ax, 0A000h
+	mov es, ax ; ES is now at the video memory
 
 	; Graphics Mode
 	mov ax, 13h
 	int 10h
+	call InitializePalette
     
-	push 4 ;Element Length
-	push 6 ;List Length
-    call ListCreate
-	pop ax ; List ID
-
-	mov bx, offset tempElement
-	mov [word ptr bx], 1234h
-	mov [word ptr bx + 2], 7575h
-	push ax ; List ID
-	push bx ; Element Offset
-	call ListAdd
-
-	mov bx, offset tempElement
-	mov [word ptr bx], 5505h
-	mov [word ptr bx + 2], 2020h
-	push ax ; List ID
-	push bx ; Element Offset
-	call ListAdd
-
-	call ClearBuffer
+	call InitializeParticles
+	
 	render:
-	call RenderFrame
-	jmp render
+		call RenderScreen
+		call RenderFrame
+		jmp render
 
 exit:
 	mov ax, 4c00h
