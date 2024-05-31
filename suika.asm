@@ -9,14 +9,18 @@ DATASEG
 ; --------------------------
 ; Your variables here
 ; --------------------------	
-	tempElement db 50 dup(0)
-    listsAlloc db 5000 dup(0ffh)
-	listsInfo db 300 dup (00h)
-	listsAmount dw 0
-	listsOffset dw 0
-	listID_particles dw 0ffffh
 
-	primes dw 6e81h,78adh,2b27h,0a535h,266fh,88cfh,9e47h,241h,0c86bh,5e57h,7051h,0d3dh,0a457h,0e969h,0a5c5h,0fc41h,0c461h,0e6c5h
+	nullbyte equ 0ffh
+	nullword equ 0ffffh
+	;  ___       _                        _ 
+	; |_ _|_ __ | |_ ___ _ __ _ __   __ _| |
+	;  | || '_ \| __/ _ \ '__| '_ \ / _` | |
+	;  | || | | | ||  __/ |  | | | | (_| | |
+	; |___|_| |_|\__\___|_|  |_| |_|\__,_|_|
+	;
+	internal_tempElement db 50 dup(0)
+
+	internal_primes dw 6e81h,78adh,2b27h,0a535h,266fh,88cfh,9e47h,241h,0c86bh,5e57h,7051h,0d3dh,0a457h,0e969h,0a5c5h,0fc41h,0c461h,0e6c5h
 		   dw 5fbdh,59f3h,5dfdh,2da9h,9debh,0d187h,3d1fh,8143h,2e37h,6011h,8f2dh,0db31h,50c9h,155fh,933dh,0c5fbh,0dac3h,0c3e9h,5b49h
 		   dw 6d2bh,417bh,2149h,4d81h,5e39h,3fbfh,0df69h,103dh,9287h,1c55h,0e183h,4badh,0a0f1h,0a5ddh,588dh,0bbdbh,905h,76f1h,0adf5h
 		   dw 19cfh,73bdh,4e9bh,0b82dh,3275h,6557h,7211h,2cffh,0dc9fh,8e01h,0f503h,0cdf1h,0fc29h,2f83h,0fbf3h,0a64bh,9da9h,2063h,329fh
@@ -26,9 +30,22 @@ DATASEG
 		   dw 1da5h,8d0dh,0f93bh,2029h,2419h,66cdh,2135h,40fh,0ac1h,5f77h,0f485h,0baa3h,0d315h,0f0d3h,4043h,0fb93h,0bcb9h,0f8ddh,0d945h,0e59h
 		   dw 2c5h,0a67h,3a1h,7703h,5c6fh,4d8dh,1b83h,110bh,8231h,135dh,616fh,40f9h,0bb9h,9f7h,259fh,0f79dh,8bd5h,599h,86c5h,0fa3fh,9fc1h,9733h
 		   dw 0f7bdh,4be9h,0abf5h,8d41h,0ca7fh,0b5h,0a597h,0e1bfh,0f257h,0efh,96fdh,47b1h,0a1a5h,0aba7h,93efh,6a91h,0eacbh,2351h,1e95h,2287h,0e5h,0d661h
-    primeCounter dw 0
+    internal_primeCounter dw 0
 
-	palette db 96,58,91,51,29,39,255,255,255,255,252,117,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    lists_alloc db 5000 dup(nullbyte)
+	lists_info db 300 dup (00h)
+	lists_amount dw 0
+	lists_offset dw 0
+
+	listID_particles dw nullword
+
+	;  ____                _           _             
+	; |  _ \ ___ _ __   __| | ___ _ __(_)_ __   __ _ 
+	; | |_) / _ \ '_ \ / _` |/ _ \ '__| | '_ \ / _` |
+	; |  _ <  __/ | | | (_| |  __/ |  | | | | | (_| |
+	; |_| \_\___|_| |_|\__,_|\___|_|  |_|_| |_|\__, |
+	;                                          |___/ 
+	rendering_palette db 96,58,91,51,29,39,255,255,255,255,252,117,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
               db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
               db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
               db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -46,6 +63,17 @@ DATASEG
               db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 	sprite_1 db 16,0,16,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
+	;   ____                        _                _      
+	;  / ___| __ _ _ __ ___   ___  | |    ___   __ _(_) ___ 
+	; | |  _ / _` | '_ ` _ \ / _ \ | |   / _ \ / _` | |/ __|
+	; | |_| | (_| | | | | | |  __/ | |__| (_) | (_| | | (__ 
+	;  \____|\__,_|_| |_| |_|\___| |_____\___/ \__, |_|\___|
+	;                                          |___/        
+	
+	listID_board dw nullword
+	game_boardOffset dw nullword
+
 CODESEG
 
 
@@ -171,7 +199,7 @@ proc NumberMod ;takes a number and a divisor and returns the modulo.
 endp NumberMod
 
 proc NumberRandom ;takes a min & max, returns a random number
-    ; formula: ((clock * primes[primecounter])%(max-min))+min
+    ; formula: ((clock * internal_primes[internal_primeCounter])%(max-min))+min
 	; parameters:
 	; - VALUE: min
 	; - VALUE: max
@@ -188,8 +216,8 @@ proc NumberRandom ;takes a min & max, returns a random number
 	mov ax, 40h
 	mov es, ax
 	mov ax, [word ptr es:6Ch]
-	mov bx, offset primes
-	add bx, [word ptr primeCounter]
+	mov bx, offset internal_primes
+	add bx, [word ptr internal_primeCounter]
 	mul [word ptr bx]
 	add ax, dx
 	mov dx, 0
@@ -198,11 +226,11 @@ proc NumberRandom ;takes a min & max, returns a random number
 	div bx
 	add min, dx
 	
-	inc [word ptr primeCounter]
-	cmp [word ptr primeCounter], 200
-	jb NumberRandom_DontResetPrimeCounter
-		mov [word ptr primeCounter], 0
-	NumberRandom_DontResetPrimeCounter:
+	inc [word ptr internal_primeCounter]
+	cmp [word ptr internal_primeCounter], 200
+	jb NumberRandom_DontResetinternal_primeCounter
+		mov [word ptr internal_primeCounter], 0
+	NumberRandom_DontResetinternal_primeCounter:
 
 	pop es dx cx bx ax
 	pop bp
@@ -225,13 +253,13 @@ proc ListCreate ;Creates a list to the allocation
 	; Get list memory length
 	mov ax, elementLength
 	mul elementAllocationLength
-	add [word ptr listsOffset], ax ;we do this little double thing so that listsOffsets gets permanently added to.
-	mov ax, [word ptr listsOffset]
+	add [word ptr lists_offset], ax ;we do this little double thing so that lists_offsets gets permanently added to.
+	mov ax, [word ptr lists_offset]
 
 	; Get lists amount
-	mov bx, [word ptr listsAmount]
+	mov bx, [word ptr lists_amount]
 	shl bx, 3 ;every list info is 8 bytes exactly
-	add bx, offset listsInfo ;this is now the list's info offset
+	add bx, offset lists_info ;this is now the list's info offset
 	mov [word ptr bx], ax ;move the allocation offset first things first
 	mov cx, elementLength
 	mov [word ptr bx + 2], cx ;move the element length
@@ -240,9 +268,9 @@ proc ListCreate ;Creates a list to the allocation
 	mov [word ptr bx + 6], 0 ;move the count, which is a 0
 
 	; We do this little trickery to return the ID of the newly created list.
-	mov ax, [word ptr listsAmount]
+	mov ax, [word ptr lists_amount]
 	mov elementLength, ax
-	inc [word ptr listsAmount]
+	inc [word ptr lists_amount]
 
 	pop di dx cx bx ax
 	pop bp
@@ -263,7 +291,7 @@ proc ListCount ;Returns the count of the list.
 	; Get list info offset
 	mov bx, listID
 	shl bx, 3 ;every list info is 8 bytes exactly
-	add bx, offset listsInfo ;this is now the list's info offset
+	add bx, offset lists_info ;this is now the list's info offset
 
 	; Move the count to it
 	mov ax, [word ptr bx + 6]
@@ -290,7 +318,7 @@ proc ListSet ;Sets an element in a list with an index and a reference.
 	; Get list info offset
 	mov bx, listID
 	shl bx, 3 ;every list info is 8 bytes exactly
-	add bx, offset listsInfo ;this is now the list's info offset
+	add bx, offset lists_info ;this is now the list's info offset
 
 	; Move the offset of the list
 	mov di, [word ptr bx]
@@ -327,7 +355,7 @@ proc ListClear ;Clears a list
 	; Get list info offset
 	mov bx, listID
 	shl bx, 3 ;every list info is 8 bytes exactly
-	add bx, offset listsInfo ;this is now the list's info offset
+	add bx, offset lists_info ;this is now the list's info offset
 
 	; Move the offset of the list
 	mov di, [word ptr bx]
@@ -338,7 +366,7 @@ proc ListClear ;Clears a list
 	mov cx, ax ; CX = ElementLength * Count
 
 	ListClear_Loop: ;Setting byte by byte, because i'm an idiot and terribly scared of movsb
-		mov [byte ptr di], 0ffh
+		mov [byte ptr di], nullbyte
 		inc di
 	loop ListClear_Loop
 
@@ -362,7 +390,7 @@ proc ListAdd ;Adds something to the list, wrapped around ListSet
 	; Get list info offset
 	mov bx, listID
 	shl bx, 3 ;every list info is 8 bytes exactly
-	add bx, offset listsInfo ;this is now the list's info offset
+	add bx, offset lists_info ;this is now the list's info offset
 
 	; Get the list count, this'll serve as an index.
 	mov cx, [word ptr bx+6]
@@ -393,7 +421,7 @@ proc ListRetrieve ;Returns an element from a list via an index
 	; Get list info offset
 	mov bx, listID
 	shl bx, 3 ;every list info is 8 bytes exactly
-	add bx, offset listsInfo ;this is now the list's info offset
+	add bx, offset lists_info ;this is now the list's info offset
 
 	; Move the offset of the list
 	mov di, [word ptr bx]
@@ -432,7 +460,7 @@ proc ListGet ;Returns the offset of a list's element via an index
 	; Get list info offset
 	mov bx, listID
 	shl bx, 3 ;every list info is 8 bytes exactly
-	add bx, offset listsInfo ;this is now the list's info offset
+	add bx, offset lists_info ;this is now the list's info offset
 
 	; Move the offset of the list
 	mov di, [word ptr bx]
@@ -513,7 +541,7 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 	;push 10 ;y
 	;call AddSpriteToBuffer
 	
-	mov cx, 10
+	mov cx, 20
 	push [word ptr listID_particles] ; List ID
 	push 0 ; We start from the first element, index 0
 	call ListGet
@@ -628,7 +656,7 @@ proc AddSpriteToBuffer ;Adds a sprite to the buffer
 endp AddSpriteToBuffer
 
 proc InitializePalette
-	mov si, offset palette
+	mov si, offset rendering_palette
 	mov cx, 256
 	mov dx, 3C8h
 	mov al, 0
@@ -652,27 +680,29 @@ endp InitializePalette
 proc InitializeParticles ;Initializes particles
 	push ax bx cx dx di
 
-	cmp [word ptr listID_particles], 0ffffh ;If the particles list is null
+	cmp [word ptr listID_particles], nullword ;If the particles list is null
 	jnz InitializeParticles_DontCreateList
 		;Creating the list here
 		push 8 ;Particles need PX, PY, VX, VY
-		push 10 ;Particle Amount, I only need 20 particles at once
+		push 20 ;Particle Amount, I only need 20 particles at once
 		call ListCreate
 		pop [word ptr listID_particles] ; List ID
 	InitializeParticles_DontCreateList:
 
-	mov cx, 10
-	mov bx, offset tempElement
+	mov cx, 20
+	mov bx, offset internal_tempElement
 	InitializeParticles_Loop:
 		push 0
-		push 319
+		push 336
 		call NumberRandom
 		pop ax
+		sub ax, 16
 		mov [word ptr bx], ax ;PX
 		push 0
-		push 199
+		push 216
 		call NumberRandom
 		pop ax
+		sub ax, 16
 		mov [word ptr bx + 2], ax ;PY
 		mov [word ptr bx + 4], 0 ;VX
 		mov [word ptr bx + 6], 0 ;VY
@@ -684,6 +714,18 @@ proc InitializeParticles ;Initializes particles
 	pop di dx cx bx ax
 	ret
 endp InitializeParticles
+
+proc InitializeBoard ;Initializes the board variables
+	cmp [word ptr listID_board], nullword ;If the board list is null
+	jnz InitializeBoard_DontCreateList
+		;Creating the list here
+		push 2 ;Every board tile needs a type, that's it, only 2.
+		push 16 ;Board is 4x4 - 16 tiles.
+		call ListCreate
+		pop [word ptr listID_board] ; List ID
+	InitializeBoard_DontCreateList:
+	ret
+endp InitializeBoard
 
 start:
 	mov ax, @data
@@ -701,8 +743,10 @@ start:
 	mov ax, 13h
 	int 10h
 	call InitializePalette
-    
+
 	call InitializeParticles
+
+	call InitializeBoard
 	
 	render:
 		call RenderScreen
