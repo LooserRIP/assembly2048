@@ -478,6 +478,45 @@ proc ListGet ;Returns the offset of a list's element via an index
 	ret 2
 endp ListGet
 
+proc ListForeach ;Runs through every element in a list, with a callback functin
+	; Info:
+	; The callback offset should be a label, make sure to ret at the end of it and push used registers.
+	; DI register is set to the offset of the list element.
+	; CX register is set to the loop iterations left.
+	; AX register is set to the list's element length.
+	
+	; Parameters:
+	; - List ID
+	; - Callback Offset
+	push bp
+	mov bp, sp
+	push ax bx cx dx di
+
+	listID equ [word ptr bp + 6]
+	callbackOffset equ [word ptr bp + 4]
+
+	; Get list info offset
+	mov bx, listID
+	shl bx, 3 ;every list info is 8 bytes exactly
+	add bx, offset lists_info ;this is now the list's info offset
+
+	; Move the offset of the list
+	mov di, [word ptr bx]
+	; Get the element length
+	mov ax, [word ptr bx+2]
+	; Get the list length
+	mov cx, [word ptr bx+6]
+
+	ListForeach_Loop:
+		call callbackOffset
+		add di, ax
+		loop ListForeach_Loop
+
+	pop di dx cx bx ax
+	pop bp
+	ret 4
+endp ListForeach
+
 proc ListRemove ;Removes an element from a list via index, and collapses it.
 	; Parameters:
 	; - List ID
@@ -604,7 +643,6 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 	;push 310 ;x
 	;push 10 ;y
 	;call BufferSprite
-
 	push [word ptr listID_particles] ; List ID
 	call ListCount
 	pop cx
