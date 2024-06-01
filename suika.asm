@@ -644,36 +644,28 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 	;push 10 ;y
 	;call BufferSprite
 	push [word ptr listID_particles] ; List ID
-	call ListCount
-	pop cx
-	push [word ptr listID_particles] ; List ID
-	push 0 ; We start from the first element, index 0
-	call ListGet
-	pop bx
-	RenderScreen_ParticleRenderLoop:
+	push offset RenderScreen_ParticleRenderForeach
+	call ListForeach
+	jmp RenderScreen_ParticleRenderForeachExit
+	RenderScreen_ParticleRenderForeach:
 		push offset sprite_1 ;sprite
-		add [word ptr bx], 1h 
-		add [word ptr bx+2], 1h
-		cmp [word ptr bx], 320 ;X border detection
+		add [word ptr di], 1h 
+		add [word ptr di+2], 1h
+		cmp [word ptr di], 320 ;X border detection
 		jl RenderScreen_ParticleDontWrapX
-			mov [word ptr bx], 0
-			sub [word ptr bx], 16
+			mov [word ptr di], 0
+			sub [word ptr di], 16
 		RenderScreen_ParticleDontWrapX:
-		cmp [word ptr bx+2], 200 ;Y border detection
+		cmp [word ptr di+2], 200 ;Y border detection
 		jl RenderScreen_ParticleDontWrapY
-			mov [word ptr bx+2], 0
-			sub [word ptr bx+2], 16
+			mov [word ptr di+2], 0
+			sub [word ptr di+2], 16
 		RenderScreen_ParticleDontWrapY:
-		push [word ptr bx] ;x
-		push [word ptr bx+2] ;y
+		push [word ptr di] ;x
+		push [word ptr di+2] ;y
 		call BufferSprite
-		add bx, 8 ;element length is 8
-		dec cx
-		cmp cx, 0
-		jz RenderScreen_ParticleRenderLoopExit
-			mov si, [word ptr RenderScreen_ParticleRenderLoop]
-			jmp RenderScreen_ParticleRenderLoop
-		RenderScreen_ParticleRenderLoopExit:
+		ret
+	RenderScreen_ParticleRenderForeachExit:
 
 	pop si dx cx bx ax
 	ret
