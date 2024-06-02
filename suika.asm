@@ -42,7 +42,7 @@ DATASEG
 
 	;  ____                _           _             
 	; |  _ \ ___ _ __   __| | ___ _ __(_)_ __   __ _ 
-	; | |_) / _ \ '_ \ / _` |/ _ \ '__| | '_ \ / _` |
+
 	; |  _ <  __/ | | | (_| |  __/ |  | | | | | (_| |
 	; |_| \_\___|_| |_|\__,_|\___|_|  |_|_| |_|\__, |
 	;                                          |___/ 
@@ -407,6 +407,35 @@ proc ListAdd ;Adds something to the list, wrapped around ListSet
 	ret 4
 endp ListAdd
 
+proc ListGetLast ;Gets the offset of the first null element in a list
+	; Parameters:
+	; - List ID
+	; Returns:
+	; - Element Offset
+	push bp
+	mov bp, sp
+	push bx cx
+
+	listID equ [word ptr bp + 6]
+
+	; Get list info offset
+	mov bx, listID
+	shl bx, 3 ;every list info is 8 bytes exactly
+	add bx, offset lists_info ;this is now the list's info offset
+
+	; Get the list count, this'll serve as an index.
+	mov cx, [word ptr bx+6]
+	inc [word ptr bx+6] ;Increase the index
+	push listID
+	push cx ;Index
+	call ListGet
+	pop listID
+
+	pop cx bx
+	pop bp
+	ret
+endp ListGetLast
+
 proc ListRetrieve ;Returns an element from a list via an index
 	; Parameters:
 	; - List ID
@@ -452,6 +481,8 @@ proc ListGet ;Returns the offset of a list's element via an index
 	; Parameters:
 	; - List ID
 	; - Index
+	; Returns:
+	; - Element Offset
 	push bp
 	mov bp, sp
 	push ax bx dx di
@@ -578,29 +609,6 @@ proc ListRemove ;Removes an element from a list via index, and collapses it.
 	pop bp
 	ret 4
 endp ListRemove
-
-proc ExampleProcedure ;a perfect template of a good procedure :)
-	; parameters:
-    ; - VALUE1: Some value
-    ; - VALUE2: Another value
-	; returns:
-    ; - VALUE3: More value
-	push bp
-	mov bp, sp
-	push ax bx cx dx di
-
-	value1 equ [word ptr bp + 6]
-	value2 equ [word ptr bp + 4]
-
-    ; Simple Value3 = Value1 + Value2
-    mov bx, value2
-    add value1, bx
-
-	pop di dx cx bx ax
-	pop bp
-	ret 2
-endp ExampleProcedure
-
 
 proc BufferClear ;clears the screen buffer
 	push ax bx cx di es
@@ -756,7 +764,7 @@ proc BufferSprite ;Adds a sprite to the buffer
 	ret 6
 endp BufferSprite
 
-proc InitializePalette
+proc InitializePalette ;Initializes the palette
 	mov si, offset rendering_palette
 	mov cx, 256
 	mov dx, 3C8h
@@ -830,19 +838,52 @@ proc InitializeBoard ;Initializes the board variables
 		call ListCreate ;Creating the same list as board, that hosts the indices that are available to spawn on
 		pop [word ptr listID_boardAvailable] ; List ID
 	InitializeBoard_DontCreateListBoard:
+
 	call GameSpawnTile
 	call GameSpawnTile
 
 	ret
 endp InitializeBoard
 
-proc GameSpawnTile ;Spawns a tile in a random position.
+proc GameSpawnTile ;Spawns a game tile
+	; Parameters:
+	; - Type
+	; Returns:
+	; - Nothing
+	push bp
+	mov bp, sp
 	push ax bx cx dx di
-
-
+	
+	type equ [word ptr bp + 4]
+	
+	
+	
 	pop di dx cx bx ax
+	pop bp
 	ret
 endp GameSpawnTile
+
+proc ExampleProcedure ;a perfect template of a good procedure :)
+	; parameters:
+    ; - VALUE1: Some value
+    ; - VALUE2: Another value
+	; returns:
+    ; - VALUE3: More value
+	push bp
+	mov bp, sp
+	push ax bx cx dx di
+
+	value1 equ [word ptr bp + 6]
+	value2 equ [word ptr bp + 4]
+
+    ; Simple Value3 = Value1 + Value2
+    mov bx, value2
+    add value1, bx
+
+	pop di dx cx bx ax
+	pop bp
+	ret 2
+endp ExampleProcedure
 
 start:
 	mov ax, @data
@@ -852,6 +893,7 @@ start:
 	mov es, ax ; ES is now at the video memory
 
 	; Graphics Mode
+	
 	mov ax, 13h
 	int 10h
 	call InitializePalette
