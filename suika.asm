@@ -845,23 +845,8 @@ proc InitializeBoard ;Initializes the board variables
 	ret
 endp InitializeBoard
 
-proc GameSpawnTile ;Spawns a game tile
-	; Parameters:
-	; - Type
-	; Returns:
-	; - Nothing
-	push bp
-	mov bp, sp
-	push ax bx cx dx di
-	
-	type equ [word ptr bp + 4]
-	
-	
-	
-	pop di dx cx bx ax
-	pop bp
-	ret
-endp GameSpawnTile
+
+
 
 proc ExampleProcedure ;a perfect template of a good procedure :)
 	; parameters:

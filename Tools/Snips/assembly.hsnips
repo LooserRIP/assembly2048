@@ -1,0 +1,141 @@
+global
+function parseparamlist(gett, extralength, max) {
+    gettreplace = gett.replaceAll(", ", ",").replaceAll("  ,",",");
+    paramlist = gettreplace.split(",").filter(item => item !== '');
+    paramlist.splice(max - 6);
+    paramlist = renameDuplicates(paramlist);
+    for (let pi = 0; pi < paramlist.length; pi++) {
+        paramlist[pi] = assemblify(camelify(paramlist[pi])) + ` equ [word ptr bp + ${(paramlist.length + 1 + extralength - pi)*2}]`
+    }
+    return paramlist
+}
+function camelify(text) {
+  if (text.includes(' ')) {
+    return text.split(' ').map((word, index) => {
+      if (index === 0)  return word.toLowerCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join('');
+  } else {
+    return text.charAt(0).toLowerCase() + text.slice(1);
+  }
+}
+function assemblify(text) {
+    if (text == "type") return "typeParam";
+    if (text == "test") return "typeParam";
+    return text;
+}
+function renameDuplicates(strings) {
+    let stringMap = {};
+    strings.forEach((str, index) => {
+        if (stringMap.hasOwnProperty(str)) {
+            stringMap[str].count++;
+            strings[index] = `${str}_${stringMap[str].count}`;
+        } else {
+            stringMap[str] = { count: 1, firstIndex: index };
+        }
+    });
+    Object.keys(stringMap).forEach(key => {
+        if (stringMap[key].count > 1) {
+            const firstIndex = stringMap[key].firstIndex;
+            strings[firstIndex] = `${key}_1`;
+        }
+    });
+  
+    return strings;
+}
+function generateText(ts, max) {
+
+    let generatedText = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
+    console.log("generating text");
+    let before = ["push bp", "mov bp, sp", "push ax bx cx dx di"]
+    let params = parseparamlist(ts[2],0, max);
+    let returns = parseparamlist(ts[3],0, max);
+    let extra = (returns.length - params.length);
+    if (params.length == 0 && returns.length == 0) {
+        before.splice(0,2);
+    }
+    if (extra > 0) {
+        before.unshift(`;   Requires ${extra} Extra pushes for return.`);
+        params = parseparamlist(ts[2],extra, max);
+        for (let ig = 0; ig < extra; ig++) {
+            params.push(`stackFixParam${ig+1} equ [word ptr bp + ${(1 + extra - ig)*2}]`);
+        }  
+    }
+
+    let after = ["","pop di dx cx bx ax", "pop bp", `%ret${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}`, `%endp ${ts[0]}`];
+    if (params.length == 0 && returns.length == 0) {
+        after.splice(2,1)
+    }
+    params = params.map((x)=>"   "+x)
+    after = after.map((x)=>(x.startsWith("%") ? x.substring(1) : ("   "+x)))
+    before = before.map((x)=>(x.startsWith("%") ? x.substring(1) : ("   "+x)))
+    for (let i = 0; i < (params.length + after.length + before.length); i++) {
+        if (i >= params.length + before.length) { generatedText[i] = after[i - before.length - params.length]; continue; }
+        if (i >= before.length) { generatedText[i] = params[i - before.length]; continue; }
+        generatedText[i] = before[i]; 
+    }  
+    if (generatedText.filter(item => item !== "").length >= max) {
+        let ind = generatedText.indexOf("   pop di dx cx bx ax");
+        generatedText[ind] = `; Extend (Space,${ts[0]},${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}):`
+        for (let ig = ind+1; ig < generatedText.length; ig++) {
+            generatedText[ig] = "";
+        }  
+    }
+    return generatedText
+}
+
+endglobal
+
+snippet paramproc "Procedure" Ab
+proc $1
+; Info: $4
+; Parameters: $2
+; Returns: $3
+``rv = `${generateText(t, 13)[0]}` ``
+``rv = `${generateText(t, 13)[1]}` ``
+``rv = `${generateText(t, 13)[2]}` ``
+``rv = `${generateText(t, 13)[3]}` ``
+``rv = `${generateText(t, 13)[4]}` ``
+``rv = `${generateText(t, 13)[5]}` ``
+``rv = `${generateText(t, 13)[6]}` ``
+``rv = `${generateText(t, 13)[7]}` ``
+``rv = `${generateText(t, 13)[8]}` ``
+``rv = `${generateText(t, 13)[9]}` ``
+``rv = `${generateText(t, 13)[10]}` ``
+``rv = `${generateText(t, 13)[11]}` ``
+endsnippet
+
+snippet longproc "Long Procedure" Ab
+proc $1
+; Info: $4
+; Parameters: $2
+; Returns: $3
+``rv = `${generateText(t, 19)[0]}` ``
+``rv = `${generateText(t, 19)[1]}` ``
+``rv = `${generateText(t, 19)[2]}` ``
+``rv = `${generateText(t, 19)[3]}` ``
+``rv = `${generateText(t, 19)[4]}` ``
+``rv = `${generateText(t, 19)[5]}` ``
+``rv = `${generateText(t, 19)[6]}` ``
+``rv = `${generateText(t, 19)[7]}` ``
+``rv = `${generateText(t, 19)[8]}` ``
+``rv = `${generateText(t, 19)[9]}` ``
+``rv = `${generateText(t, 19)[10]}` ``
+``rv = `${generateText(t, 19)[11]}` ``
+``rv = `${generateText(t, 19)[12]}` ``
+``rv = `${generateText(t, 19)[13]}` ``
+``rv = `${generateText(t, 19)[14]}` ``
+``rv = `${generateText(t, 19)[15]}` ``
+``rv = `${generateText(t, 19)[16]}` ``
+``rv = `${generateText(t, 19)[17]}` ``
+endsnippet
+
+snippet `; Extend \(Space,.*?,.*?\): ` "Procedure Extend Accept" A
+    pop di dx cx bx ax
+    pop bp
+    ret $2
+endp $1
+endsnippet
+
+snippet `; Extend \(Space,.*?,.*?\):\S+` "Procedure Extend Decline" A
+endsnippet
