@@ -42,7 +42,6 @@ DATASEG
 
 	;  ____                _           _             
 	; |  _ \ ___ _ __   __| | ___ _ __(_)_ __   __ _ 
-
 	; |  _ <  __/ | | | (_| |  __/ |  | | | | | (_| |
 	; |_| \_\___|_| |_|\__,_|\___|_|  |_|_| |_|\__, |
 	;                                          |___/ 
@@ -213,8 +212,7 @@ proc NumberRandom ;takes a min & max, returns a random number
 
 	min equ [word ptr bp + 6]
 	max equ [word ptr bp + 4]
-	
-	
+
 	mov ax, 40h
 	mov es, ax
 	mov ax, [word ptr es:6Ch]
@@ -247,22 +245,24 @@ proc ListCreate ;Creates a list to the allocation
 	; - List ID
 	push bp
 	mov bp, sp
-	push ax bx cx dx di
+	push ax bx cx dx di si
 
 	elementLength equ [word ptr bp + 6]
 	elementAllocationLength equ [word ptr bp + 4]
 
 	; Get list memory length
 	mov ax, elementLength
+	mov dx, 0
 	mul elementAllocationLength
+	mov si, [word ptr lists_offset]
 	add [word ptr lists_offset], ax ;we do this little double thing so that lists_offsets gets permanently added to.
-	mov ax, [word ptr lists_offset]
+
 
 	; Get lists amount
 	mov bx, [word ptr lists_amount]
 	shl bx, 3 ;every list info is 8 bytes exactly
 	add bx, offset lists_info ;this is now the list's info offset
-	mov [word ptr bx], ax ;move the allocation offset first things first
+	mov [word ptr bx], si ;move the allocation offset first things first
 	mov cx, elementLength
 	mov [word ptr bx + 2], cx ;move the element length
 	mov cx, elementAllocationLength
@@ -274,7 +274,7 @@ proc ListCreate ;Creates a list to the allocation
 	mov elementLength, ax
 	inc [word ptr lists_amount]
 
-	pop di dx cx bx ax
+	pop si di dx cx bx ax
 	pop bp
 	ret 2
 endp ListCreate
@@ -350,7 +350,7 @@ proc ListClear ;Clears a list
 	; - List ID
 	push bp
 	mov bp, sp
-	push ax bx cx dx di
+	push ax bx cx dx di si
 
 	listID equ [word ptr bp + 4]
 
@@ -363,8 +363,13 @@ proc ListClear ;Clears a list
 	mov di, [word ptr bx]
 	; Get the element length
 	mov ax, [word ptr bx+2]
-	mov dx, [word ptr bx+6] ;Save the element count, this'll serve as the index
-	mul dx ;Multiply it by the index
+	mov dx, 0
+	mov si, [word ptr bx+6] ;Save the element count, this'll serve as the index
+	cmp si, 0
+	; jnz notexit
+	; 	jmp exit
+	; notexit:
+	mul si ;Multiply it by the index
 	mov cx, ax ; CX = ElementLength * Count
 
 	ListClear_Loop: ;Setting byte by byte, because i'm an idiot and terribly scared of movsb
@@ -373,7 +378,7 @@ proc ListClear ;Clears a list
 	loop ListClear_Loop
 
 
-	pop di dx cx bx ax
+	pop si di dx cx bx ax
 	pop bp
 	ret 2
 endp ListClear
@@ -407,7 +412,7 @@ proc ListAdd ;Adds something to the list, wrapped around ListSet
 	ret 4
 endp ListAdd
 
-proc ListGetLast ;Gets the offset of the first null element in a list
+proc ListGetAdd ;Gets the offset of the first null element in a list
 	; Parameters:
 	; - List ID
 	; Returns:
@@ -434,7 +439,7 @@ proc ListGetLast ;Gets the offset of the first null element in a list
 	pop cx bx
 	pop bp
 	ret
-endp ListGetLast
+endp ListGetAdd
 
 proc ListRetrieve ;Returns an element from a list via an index
 	; Parameters:
@@ -825,6 +830,7 @@ proc InitializeParticles ;Initializes particles
 endp InitializeParticles
 
 proc InitializeBoard ;Initializes the board variables
+	push ax bx cx dx di si
 	cmp [word ptr listID_board], nullword ;If the board list is null
 	jnz InitializeBoard_DontCreateListBoard
 		;Creating the list here
@@ -834,31 +840,117 @@ proc InitializeBoard ;Initializes the board variables
 		pop [word ptr listID_board] ; List ID
 
 		push 2 
-		push 16 
+		push 16 	
 		call ListCreate ;Creating the same list as board, that hosts the indices that are available to spawn on
 		pop [word ptr listID_boardAvailable] ; List ID
 	InitializeBoard_DontCreateListBoard:
 
-	call GameSpawnTile
-	call GameSpawnTile
 
+	push [word ptr listID_boardAvailable] ; List ID
+	push 0
+	call ListGet
+	pop bx
+	mov [word ptr bx], 0
+	mov [word ptr bx+2], 0
+	mov [word ptr bx+4], 0
+	mov [word ptr bx+6], 0
+	mov [word ptr bx+8], 0
+	mov [word ptr bx+10], 0
+	mov [word ptr bx+12], 0
+	mov [word ptr bx+14], 0
+	mov [word ptr bx+16], 0
+	mov [word ptr bx+18], 0
+	mov [word ptr bx+20], 0
+	mov [word ptr bx+22], 0
+	mov [word ptr bx+24], 0
+	mov [word ptr bx+26], 0
+	mov [word ptr bx+28], 0
+	mov [word ptr bx+30], 0
+	
+	push [word ptr listID_boardAvailable]
+	call ListClear
+
+	push 0
+	call GameSpawnRandomTile
+	push 0
+	call GameSpawnRandomTile
+
+	pop si di dx cx bx ax
 	ret
 endp InitializeBoard
 
 
+proc GameSpawnRandomTile
+	; Info: Spawns a game tile into the board list at a random null position.
+	; Parameters: Tile Type
+	push bp
+	mov bp, sp
+	push ax bx cx dx di si
+	tileType equ [word ptr bp + 4]
+	
+	jmp testskip
+	push [word ptr listID_board]
+	push offset GameSpawnRandomTile_boardForeach
+	call ListForeach ;Foreach on list 'board'
+	jmp GameSpawnRandomTile_boardForeachExit
+	GameSpawnRandomTile_boardForeach:
+		;DI = offset, CX = iterations left, AX = list element's length
+		cmp [word ptr di], nullword
+		je GameSpawnRandomTile_NullSkip
+			push [word ptr listID_boardAvailable] ; List ID
+			call ListGetAdd ;Like list add but returns the offset
+			pop bx ;We now got the add position
+			mov [word ptr bx], 16
+			sub [word ptr bx], cx ; Element = listIndex
+		GameSpawnRandomTile_NullSkip:
+		ret
+	GameSpawnRandomTile_boardForeachExit:
+
+	push [word ptr listID_boardAvailable]
+	call ListCount
+	pop bx
+
+	push 0
+	push bx ; List Count
+	call NumberRandom
+	pop si ; si = index
+
+	push [word ptr listID_boardAvailable]
+	push si
+	call ListGet
+	pop bx
+
+	mov ax, tileType
+	mov [word ptr bx], ax
+testskip:
+	pop si di dx cx bx ax
+	pop bp
+	ret 2
+endp GameSpawnRandomTile
+
+
 proc GameSpawnTile
-; Info: Spawns a game tile into the board list.
-; Parameters: Tile Type, Tile Index
-   push bp
-   mov bp, sp
-   push ax bx cx dx di
-   tileType equ [word ptr bp + 6]
-   tileIndex equ [word ptr bp + 4]
-   
-   pop di dx cx bx ax
-   pop bp
-ret 4
+	; Info: Spawns a game tile into the board list.
+	; Parameters: Tile Type, Tile Index
+	push bp
+	mov bp, sp
+	push ax bx
+	tileType equ [word ptr bp + 6]
+	tileIndex equ [word ptr bp + 4]
+	
+	push [word ptr listID_board]
+	push tileIndex
+	call ListGet
+	pop bx
+	mov ax, tileType
+	mov [word ptr bx], ax
+
+
+	pop bx ax
+	pop bp
+	ret 4
 endp GameSpawnTile
+
 
 
 

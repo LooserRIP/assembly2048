@@ -68,16 +68,16 @@ function generateText(ts, max, mode) {
     if (params.length == 0 && returns.length == 0) {
         after.splice(2,1)
     }
-    params = params.map((x)=>"   "+x)
-    after = after.map((x)=>(x.startsWith("%") ? x.substring(1) : ("   "+x)))
-    before = before.map((x)=>(x.startsWith("%") ? x.substring(1) : ("   "+x)))
+    params = params.map((x)=>"    "+x)
+    after = after.map((x)=>(x.startsWith("%") ? x.substring(1) : ("    "+x)))
+    before = before.map((x)=>(x.startsWith("%") ? x.substring(1) : ("    "+x)))
     for (let i = 0; i < (params.length + after.length + before.length); i++) {
         if (i >= params.length + before.length) { generatedText[i] = after[i - before.length - params.length]; continue; }
         if (i >= before.length) { generatedText[i] = params[i - before.length]; continue; }
         generatedText[i] = before[i]; 
     }  
     if (generatedText.filter(item => item !== "").length >= max) {
-        let ind = generatedText.indexOf("   pop si di dx cx bx ax");
+        let ind = generatedText.indexOf("    pop si di dx cx bx ax");
         generatedText[ind] = `; Extend (Space,${ts[0]},${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}):`
         for (let ig = ind+1; ig < generatedText.length; ig++) {
             generatedText[ig] = "";
@@ -157,6 +157,13 @@ snippet `; Extend \(Space,.*?,.*?\): ` "Procedure Extend Accept" A
 endp $1
 endsnippet
 
+snippet `extendproc` "Procedure Extend Accept" A
+    pop di dx cx bx ax
+    pop bp
+    ret $2
+endp $1
+endsnippet
+
 snippet `; Extend \(Space,.*?,.*?\):\S+` "Procedure Extend Decline" A
 endsnippet
 
@@ -164,5 +171,36 @@ snippet `; Returns:   ` "Procedure Extend Decline" A
 endsnippet
 
 snippet pushall "Push All" Ab
+push ax bx cx dx di si
+endsnippet
 
+snippet popall "Pop All" Ab
+pop si di dx cx bx ax
+endsnippet
+
+
+
+snippet `foreach` "List Foreach" Ab
+push [word ptr listID_$1]
+push offset $2_$1Foreach
+call ListForeach ;Foreach On List '$1'
+jmp $2_$1ForeachExit
+$2_$1Foreach:
+;DI = offset, CX = iterations left, AX = list element's length
+    $0
+    ret
+$2_$1ForeachExit:
+endsnippet
+
+snippet pushlist "Push ListID" Ab
+push [word ptr listID_$1]
+$0
+endsnippet
+
+snippet worp "Word PTR" A
+[word ptr $1]$0
+endsnippet
+
+snippet bytp "Word PTR" A
+[byte ptr $1]$0
 endsnippet
