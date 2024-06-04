@@ -846,29 +846,23 @@ proc InitializeBoard ;Initializes the board variables
 endp InitializeBoard
 
 
+proc GameSpawnTile
+; Info: Spawns a game tile into the board list.
+; Parameters: Tile Type, Tile Index
+   push bp
+   mov bp, sp
+   push ax bx cx dx di
+   tileType equ [word ptr bp + 6]
+   tileIndex equ [word ptr bp + 4]
+   
+   pop di dx cx bx ax
+   pop bp
+ret 4
+endp GameSpawnTile
 
 
-proc ExampleProcedure ;a perfect template of a good procedure :)
-	; parameters:
-    ; - VALUE1: Some value
-    ; - VALUE2: Another value
-	; returns:
-    ; - VALUE3: More value
-	push bp
-	mov bp, sp
-	push ax bx cx dx di
 
-	value1 equ [word ptr bp + 6]
-	value2 equ [word ptr bp + 4]
 
-    ; Simple Value3 = Value1 + Value2
-    mov bx, value2
-    add value1, bx
-
-	pop di dx cx bx ax
-	pop bp
-	ret 2
-endp ExampleProcedure
 
 start:
 	mov ax, @data
@@ -876,7 +870,7 @@ start:
 
 	mov ax, 0A000h
 	mov es, ax ; ES is now at the video memory
-
+	
 	; Graphics Mode
 	
 	mov ax, 13h

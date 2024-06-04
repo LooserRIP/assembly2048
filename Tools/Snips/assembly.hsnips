@@ -43,13 +43,15 @@ function renameDuplicates(strings) {
   
     return strings;
 }
-function generateText(ts, max) {
-
+function generateText(ts, max, mode) {
+    let returntext = "";
+    if (mode != 1) { //if it ain't void
+        returntext = ts[3];
+    }
     let generatedText = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
-    console.log("generating text");
-    let before = ["push bp", "mov bp, sp", "push ax bx cx dx di"]
+    let before = ["push bp", "mov bp, sp", "push ax bx cx dx di si"]
     let params = parseparamlist(ts[2],0, max);
-    let returns = parseparamlist(ts[3],0, max);
+    let returns = parseparamlist(returntext,0, max);
     let extra = (returns.length - params.length);
     if (params.length == 0 && returns.length == 0) {
         before.splice(0,2);
@@ -62,7 +64,7 @@ function generateText(ts, max) {
         }  
     }
 
-    let after = ["","pop di dx cx bx ax", "pop bp", `%ret${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}`, `%endp ${ts[0]}`];
+    let after = ["","pop si di dx cx bx ax", "pop bp", `%ret${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}`, `%endp ${ts[0]}`];
     if (params.length == 0 && returns.length == 0) {
         after.splice(2,1)
     }
@@ -75,7 +77,7 @@ function generateText(ts, max) {
         generatedText[i] = before[i]; 
     }  
     if (generatedText.filter(item => item !== "").length >= max) {
-        let ind = generatedText.indexOf("   pop di dx cx bx ax");
+        let ind = generatedText.indexOf("   pop si di dx cx bx ax");
         generatedText[ind] = `; Extend (Space,${ts[0]},${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}):`
         for (let ig = ind+1; ig < generatedText.length; ig++) {
             generatedText[ig] = "";
@@ -103,6 +105,24 @@ proc $1
 ``rv = `${generateText(t, 13)[9]}` ``
 ``rv = `${generateText(t, 13)[10]}` ``
 ``rv = `${generateText(t, 13)[11]}` ``
+endsnippet
+
+snippet voidproc "Procedure" Ab
+proc $1
+; Info: $3
+; Parameters: $2
+``rv = `${generateText(t, 13, 1)[0]}` ``
+``rv = `${generateText(t, 13, 1)[1]}` ``
+``rv = `${generateText(t, 13, 1)[2]}` ``
+``rv = `${generateText(t, 13, 1)[3]}` ``
+``rv = `${generateText(t, 13, 1)[4]}` ``
+``rv = `${generateText(t, 13, 1)[5]}` ``
+``rv = `${generateText(t, 13, 1)[6]}` ``
+``rv = `${generateText(t, 13, 1)[7]}` ``
+``rv = `${generateText(t, 13, 1)[8]}` ``
+``rv = `${generateText(t, 13, 1)[9]}` ``
+``rv = `${generateText(t, 13, 1)[10]}` ``
+``rv = `${generateText(t, 13, 1)[11]}` ``
 endsnippet
 
 snippet longproc "Long Procedure" Ab
@@ -138,4 +158,11 @@ endp $1
 endsnippet
 
 snippet `; Extend \(Space,.*?,.*?\):\S+` "Procedure Extend Decline" A
+endsnippet
+
+snippet `; Returns:   ` "Procedure Extend Decline" A
+endsnippet
+
+snippet pushall "Push All" Ab
+
 endsnippet
