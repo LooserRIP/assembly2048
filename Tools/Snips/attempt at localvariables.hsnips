@@ -9,6 +9,16 @@ function parseparamlist(gett, extralength, max) {
     }
     return paramlist
 }
+function parselocallist(gett, extralength, max) {
+    gettreplace = gett.replaceAll(", ", ",").replaceAll("  ,",",");
+    paramlist = gettreplace.split(",").filter(item => item !== '');
+    paramlist.splice(max - 6);
+    paramlist = renameDuplicates(paramlist);
+    for (let pi = 0; pi < paramlist.length; pi++) {
+        paramlist[pi] = assemblify(camelify(paramlist[pi])) + ` equ [word ptr bp - ${(pi)*2}]`
+    }
+    return paramlist
+}
 function camelify(text) {
   if (text.includes(' ')) {
     return text.split(' ').map((word, index) => {
@@ -45,17 +55,27 @@ function renameDuplicates(strings) {
 }
 function generateText(ts, max, mode) {
     let returntext = "";
-    if (mode != 1) { //if it ain't void
+    let localvarstext = "";
+    let paramtext = ts[2];
+    if (mode != 2) { //if it ain't void
         returntext = ts[3];
     }
     let generatedText = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
-    let before = ["push bp", "mov bp, sp", "push ax bx cx dx di si"]
-    let params = parseparamlist(ts[2],0, max);
+    let params = parseparamlist(paramtext,0, max);
     let returns = parseparamlist(returntext,0, max);
+    let localvars = parseparamlist(localvarstext,0, max);
     let extra = (returns.length - params.length);
-    if (params.length == 0 && returns.length == 0) {
-        before.splice(0,2);
+    
+
+    let msg_subsp = `sub sp ${localvars.length}`;
+    let msg_addsp = `add sp ${localvars.length}`;
+    let before = ["push bp", "mov bp, sp", msg_addsp, "push ax bx cx dx di si"]
+    if (params.length == 0 && returns.length == 0 && localvars.length == 0) {
+        before = ["push ax bx cx dx di si"];
+    } else if (localvars.length == 0) {
+        before = ["push bp", "mov bp, sp", "push ax bx cx dx di si"]
     }
+
     if (extra > 0) {
         before.unshift(`;   Requires ${extra} Extra pushes for return.`);
         params = parseparamlist(ts[2],extra, max);
@@ -63,17 +83,26 @@ function generateText(ts, max, mode) {
             params.push(`stackFixParam${ig+1} equ [word ptr bp + ${(1 + extra - ig)*2}]`);
         }  
     }
-
-    let after = ["","pop si di dx cx bx ax", "pop bp", `%ret${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}`, `%endp ${ts[0]}`];
-    if (params.length == 0 && returns.length == 0) {
-        after.splice(2,1)
+    let msg_ret = `%ret${(params.length==returns.length)?"":(" "+(params.length-returns.length)*2)}`; 
+    let msg_endp = `%endp ${ts[0]}`
+    
+    let after = ["","pop si di dx cx bx ax", msg_addsp, "pop bp", msg_ret, msg_endp];
+    if (params.length == 0 && returns.length == 0 && localvars.length == 0) {
+        after = ["","pop si di dx cx bx ax", msg_endp]
+    } else if (localvars.length == 0) {
+        after = ["","pop si di dx cx bx ax", "pop bp", msg_ret, msg_endp];
     }
-    params = params.map((x)=>"    "+x)
+
+    paramstext = params.map((x)=>"    "+x)
+    for (let iga = 0; iga < localvarstext.length; iga++) {
+        paramstext.push("    "+localvarstext[iga]);
+    }
+
     after = after.map((x)=>(x.startsWith("%") ? x.substring(1) : ("    "+x)))
     before = before.map((x)=>(x.startsWith("%") ? x.substring(1) : ("    "+x)))
-    for (let i = 0; i < (params.length + after.length + before.length); i++) {
-        if (i >= params.length + before.length) { generatedText[i] = after[i - before.length - params.length]; continue; }
-        if (i >= before.length) { generatedText[i] = params[i - before.length]; continue; }
+    for (let i = 0; i < (paramstext.length + after.length + before.length); i++) {
+        if (i >= paramstext.length + before.length) { generatedText[i] = after[i - before.length - paramstext.length]; continue; }
+        if (i >= before.length) { generatedText[i] = paramstext[i - before.length]; continue; }
         generatedText[i] = before[i]; 
     }  
     if (generatedText.filter(item => item !== "").length >= max) {
@@ -88,11 +117,12 @@ function generateText(ts, max, mode) {
 
 endglobal
 
-snippet paramproc "Procedure" Ab
+snippet proc "Procedure" Ab
 proc $1
-; Info: $4
+; Info: $5
 ; Parameters: $2
 ; Returns: $3
+; Local Variables: $4
 ``rv = `${generateText(t, 13)[0]}` ``
 ``rv = `${generateText(t, 13)[1]}` ``
 ``rv = `${generateText(t, 13)[2]}` ``
@@ -107,10 +137,11 @@ proc $1
 ``rv = `${generateText(t, 13)[11]}` ``
 endsnippet
 
-snippet voidproc "Procedure" Ab
+snippet paramproc "Procedure" Ab
 proc $1
-; Info: $3
+; Info: $4
 ; Parameters: $2
+; Returns: $3
 ``rv = `${generateText(t, 13, 1)[0]}` ``
 ``rv = `${generateText(t, 13, 1)[1]}` ``
 ``rv = `${generateText(t, 13, 1)[2]}` ``
@@ -125,11 +156,31 @@ proc $1
 ``rv = `${generateText(t, 13, 1)[11]}` ``
 endsnippet
 
-snippet longproc "Long Procedure" Ab
+snippet voidproc "Procedure" Ab
 proc $1
 ; Info: $4
 ; Parameters: $2
+; Local Variables: $3
+``rv = `${generateText(t, 13, 2)[0]}` ``
+``rv = `${generateText(t, 13, 2)[1]}` ``
+``rv = `${generateText(t, 13, 2)[2]}` ``
+``rv = `${generateText(t, 13, 2)[3]}` ``
+``rv = `${generateText(t, 13, 2)[4]}` ``
+``rv = `${generateText(t, 13, 2)[5]}` ``
+``rv = `${generateText(t, 13, 2)[6]}` ``
+``rv = `${generateText(t, 13, 2)[7]}` ``
+``rv = `${generateText(t, 13, 2)[8]}` ``
+``rv = `${generateText(t, 13, 2)[9]}` ``
+``rv = `${generateText(t, 13, 2)[10]}` ``
+``rv = `${generateText(t, 13, 2)[11]}` ``
+endsnippet
+
+snippet longproc "Long Procedure" Ab
+proc $1
+; Info: $5
+; Parameters: $2
 ; Returns: $3
+; Local Variables: $4
 ``rv = `${generateText(t, 19)[0]}` ``
 ``rv = `${generateText(t, 19)[1]}` ``
 ``rv = `${generateText(t, 19)[2]}` ``
@@ -162,12 +213,6 @@ snippet `extendproc` "Procedure Extend Accept" A
     pop bp
     ret $2
 endp $1
-endsnippet
-
-snippet procinfo "Procedure Info" A
-; Info: $1
-; Parameters: $2
-; Returns: $3
 endsnippet
 
 snippet `; Extend \(Space,.*?,.*?\):\S+` "Procedure Extend Decline" A

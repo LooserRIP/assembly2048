@@ -6,12 +6,11 @@ SEGMENT ScreenBuffer PUBLIC
 ENDS ScreenBuffer
 
 DATASEG
-; --------------------------
-; Your variables here
-; --------------------------	
 
 	nullbyte equ 0ffh
 	nullword equ 0ffffh
+	boolFalse equ 0
+	boolTrue equ 1
 	;  ___       _                        _ 
 	; |_ _|_ __ | |_ ___ _ __ _ __   __ _| |
 	;  | || '_ \| __/ _ \ '__| '_ \ / _` | |
@@ -63,6 +62,7 @@ DATASEG
               db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 	sprite_1 db 16,0,16,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,3,3,3,3,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
 
 	;   ____                        _                _      
 	;  / ___| __ _ _ __ ___   ___  | |    ___   __ _(_) ___ 
@@ -364,19 +364,16 @@ proc ListClear ;Clears a list
 	; Get the element length
 	mov ax, [word ptr bx+2]
 	mov dx, 0
-	mov si, [word ptr bx+6] ;Save the element count, this'll serve as the index
-	cmp si, 0
-	; jnz notexit
-	; 	jmp exit
-	; notexit:
+	mov si, [word ptr bx+4] ;Save the element *length*, this'll serve as the index
 	mul si ;Multiply it by the index
 	mov cx, ax ; CX = ElementLength * Count
-
+	cmp cx, 0
+	jz ListClear_NoLoop
 	ListClear_Loop: ;Setting byte by byte, because i'm an idiot and terribly scared of movsb
 		mov [byte ptr di], nullbyte
 		inc di
 	loop ListClear_Loop
-
+	ListClear_NoLoop:
 
 	pop si di dx cx bx ax
 	pop bp
@@ -421,7 +418,7 @@ proc ListGetAdd ;Gets the offset of the first null element in a list
 	mov bp, sp
 	push bx cx
 
-	listID equ [word ptr bp + 6]
+	listID equ [word ptr bp + 4]
 
 	; Get list info offset
 	mov bx, listID
@@ -524,12 +521,14 @@ proc ListForeach ;Runs through every element in a list, with a callback functin
 	; Parameters:
 	; - List ID
 	; - Callback Offset
+	; ? Run through length instead of count?
 	push bp
 	mov bp, sp
 	push ax bx cx dx di
 
-	listID equ [word ptr bp + 6]
-	callbackOffset equ [word ptr bp + 4]
+	listID equ [word ptr bp + 8]
+	callbackOffset equ [word ptr bp + 6]
+	runThroughLength equ [word ptr bp + 4]
 
 	; Get list info offset
 	mov bx, listID
@@ -540,17 +539,23 @@ proc ListForeach ;Runs through every element in a list, with a callback functin
 	mov di, [word ptr bx]
 	; Get the element length
 	mov ax, [word ptr bx+2]
-	; Get the list length
+	; Get the list count
 	mov cx, [word ptr bx+6]
-
+	cmp runThroughLength, boolTrue
+	jnz ListForeach_LengthCheck
+		; Get the list length instead
+		mov cx, [word ptr bx+4]
+	ListForeach_LengthCheck:
+		cmp cx, 0
+		jz ListForeach_Empty
 	ListForeach_Loop:
 		call callbackOffset
 		add di, ax
 		loop ListForeach_Loop
-
+	ListForeach_Empty:
 	pop di dx cx bx ax
 	pop bp
-	ret 4
+	ret 6
 endp ListForeach
 
 proc ListRemove ;Removes an element from a list via index, and collapses it.
@@ -658,6 +663,7 @@ proc RenderScreen ;Renders the game's objects onto the screen.
 	;call BufferSprite
 	push [word ptr listID_particles] ; List ID
 	push offset RenderScreen_ParticleRenderForeach
+	push boolFalse
 	call ListForeach
 	jmp RenderScreen_ParticleRenderForeachExit
 	RenderScreen_ParticleRenderForeach:
@@ -769,6 +775,89 @@ proc BufferSprite ;Adds a sprite to the buffer
 	ret 6
 endp BufferSprite
 
+proc BufferSpriteCenter
+	; Info: Adds a sprite to the buffer from the center of it.
+	; Parameters: Sprite Offset, X Offset, Y Offset, ?Relative To Center
+	push bp
+	mov bp, sp
+	sub sp, 4 ;Allocate some space for temporary variables
+	push ax bx cx dx di es si
+
+	spriteOffset equ [word ptr bp + 8]
+	topLeftX equ [word ptr bp + 6]
+	topLeftY equ [word ptr bp + 4]
+
+	mov ax, topLeftY
+	mov dx, 320
+	imul dx
+	add ax, topLeftX
+	mov si, ax ;SI = (topLeftY * 320) + topLeftX
+
+	mov ax, ScreenBuffer
+	mov es, ax ; ES is now at the screen buffer
+
+	mov di, spriteOffset
+
+	mov cx, [word ptr di]
+	mov spriteWidth, cx
+	mov cx, [word ptr di+2]
+	mov spriteHeight, cx
+	add di, 4
+
+	mov cx, 0
+	mov bx, 0
+	BufferSprite_SetLoop:
+		mov al, [byte ptr di]
+		cmp al, 0
+		
+		mov dx, cx ;Whole DX part is for detecting if this sprite's width is overflowing
+		add dx, topLeftX
+		cmp dx, 320
+		jge BufferSprite_SkipDraw
+		cmp dx, 0
+		jl BufferSprite_SkipDraw
+
+		mov dx, bx ;Whole DX part is for detecting if this sprite's height is overflowing
+		add dx, topLeftY
+		cmp dx, 200
+		jge BufferSprite_SkipDraw
+		cmp dx, 0
+		jl BufferSprite_SkipDraw
+
+		jz BufferSprite_SkipDraw
+			mov [byte ptr es:si], al
+			dec [byte ptr es:si]
+		BufferSprite_SkipDraw:
+
+		inc si ;increase the screen offset
+		inc di ;increase the sprite offset pointer
+		inc cx ;just some row detection, cx being width and dx being height
+
+
+		cmp cx, spriteWidth
+		jl BufferSprite_AddWidth
+			sub si, cx ;Take away the X si travelled, which is cx or spritewidth doesn't matter they're equal here
+			add si, 320 ;Add a row to si
+			mov cx, 0
+			inc bx
+			;cmp dx, 0
+			;jl BufferSprite_Exit
+
+			cmp bx, spriteHeight
+			jl BufferSprite_SetLoop
+			jmp BufferSprite_Exit
+		BufferSprite_AddWidth:
+		jmp BufferSprite_SetLoop
+	BufferSprite_Exit:
+
+	pop si es di dx cx bx ax
+	add sp, 4
+	pop bp
+	ret 6
+endp BufferSpriteCenter
+
+
+
 proc InitializePalette ;Initializes the palette
 	mov si, offset rendering_palette
 	mov cx, 256
@@ -806,16 +895,18 @@ proc InitializeParticles ;Initializes particles
 	mov cx, 20
 	mov bx, offset internal_tempElement
 	InitializeParticles_Loop:
-		push 0
-		push 336
-		call NumberRandom
-		pop ax
+;push 0
+;push 336
+;call NumberRandom
+;pop ax
+		mov ax, 20
 		sub ax, 16
 		mov [word ptr bx], ax ;PX
-		push 0
-		push 216
-		call NumberRandom
-		pop ax
+;push 0
+;push 216
+;call NumberRandom
+;pop ax
+		mov ax, 70
 		sub ax, 16
 		mov [word ptr bx + 2], ax ;PY
 		mov [word ptr bx + 4], 0 ;VX
@@ -850,22 +941,6 @@ proc InitializeBoard ;Initializes the board variables
 	push 0
 	call ListGet
 	pop bx
-	mov [word ptr bx], 0
-	mov [word ptr bx+2], 0
-	mov [word ptr bx+4], 0
-	mov [word ptr bx+6], 0
-	mov [word ptr bx+8], 0
-	mov [word ptr bx+10], 0
-	mov [word ptr bx+12], 0
-	mov [word ptr bx+14], 0
-	mov [word ptr bx+16], 0
-	mov [word ptr bx+18], 0
-	mov [word ptr bx+20], 0
-	mov [word ptr bx+22], 0
-	mov [word ptr bx+24], 0
-	mov [word ptr bx+26], 0
-	mov [word ptr bx+28], 0
-	mov [word ptr bx+30], 0
 	
 	push [word ptr listID_boardAvailable]
 	call ListClear
@@ -888,27 +963,34 @@ proc GameSpawnRandomTile
 	push ax bx cx dx di si
 	tileType equ [word ptr bp + 4]
 	
-	jmp testskip
 	push [word ptr listID_board]
 	push offset GameSpawnRandomTile_boardForeach
+	push boolTrue
 	call ListForeach ;Foreach on list 'board'
 	jmp GameSpawnRandomTile_boardForeachExit
 	GameSpawnRandomTile_boardForeach:
 		;DI = offset, CX = iterations left, AX = list element's length
 		cmp [word ptr di], nullword
-		je GameSpawnRandomTile_NullSkip
+		jne GameSpawnRandomTile_NotNullSkip
 			push [word ptr listID_boardAvailable] ; List ID
 			call ListGetAdd ;Like list add but returns the offset
 			pop bx ;We now got the add position
 			mov [word ptr bx], 16
 			sub [word ptr bx], cx ; Element = listIndex
-		GameSpawnRandomTile_NullSkip:
+		GameSpawnRandomTile_NotNullSkip:
 		ret
 	GameSpawnRandomTile_boardForeachExit:
+	;jmp skiptest
 
 	push [word ptr listID_boardAvailable]
 	call ListCount
 	pop bx
+	; If bx = 0, no available spots, this would mean losing. at the moment,
+	; i'll be jumping to exit.
+	cmp bx, 0
+	jne GameSpawnRandomTile_NotLose
+		jmp exit
+	GameSpawnRandomTile_NotLose:
 
 	push 0
 	push bx ; List Count
@@ -922,7 +1004,8 @@ proc GameSpawnRandomTile
 
 	mov ax, tileType
 	mov [word ptr bx], ax
-testskip:
+
+	skiptest:
 	pop si di dx cx bx ax
 	pop bp
 	ret 2
@@ -951,7 +1034,14 @@ proc GameSpawnTile
 	ret 4
 endp GameSpawnTile
 
-
+proc InitializeInternal
+; Info: Initializes all the necessary internal variables.
+	push ax bx cx dx di si
+	mov ax, offset lists_alloc
+	mov [word ptr lists_offset], ax
+	pop si di dx cx bx ax
+ret
+endp InitializeInternal
 
 
 
@@ -959,6 +1049,7 @@ endp GameSpawnTile
 start:
 	mov ax, @data
 	mov ds, ax
+	call InitializeInternal
 
 	mov ax, 0A000h
 	mov es, ax ; ES is now at the video memory
