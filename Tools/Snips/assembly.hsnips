@@ -191,6 +191,7 @@ endsnippet
 snippet `foreach` "List Foreach" Ab
 push [word ptr listID_$1]
 push offset $2_$1Foreach
+push boolFalse
 call ListForeach ;Foreach On List '$1'
 jmp $2_$1ForeachExit
 $2_$1Foreach:
