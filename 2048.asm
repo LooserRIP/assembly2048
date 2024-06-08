@@ -1,3 +1,8 @@
+;  _   _ ___   ____  _   _ __  __ _   _ _     ___ _  __
+; | | | |_ _| / ___|| | | |  \/  | | | | |   |_ _| |/ /
+; | |_| || |  \___ \| |_| | |\/| | | | | |    | || ' / 
+; |  _  || |   ___) |  _  | |  | | |_| | |___ | || . \ 
+; |_| |_|___| |____/|_| |_|_|  |_|\___/|_____|___|_|\_\
 IDEAL
 MODEL small
 STACK 100h
@@ -6,11 +11,22 @@ SEGMENT ScreenBuffer PUBLIC
 ENDS ScreenBuffer
 
 DATASEG
+	;   ____                _              _       
+	;  / ___|___  _ __  ___| |_ __ _ _ __ | |_ ___ 
+	; | |   / _ \| '_ \/ __| __/ _` | '_ \| __/ __|
+	; | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
+	;  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
+	constant_framesToShowGameOver equ 60
 
 	nullbyte equ 0ffh
 	nullword equ 0ffffh
 	boolFalse equ 0
 	boolTrue equ 1
+
+	gamemodeMainMenu equ 0
+	gamemodePlaying equ 1
+	gamemodeDead equ 2
+	gamemodePause equ 3
 	;  ___       _                        _ 
 	; |_ _|_ __ | |_ ___ _ __ _ __   __ _| |
 	;  | || '_ \| __/ _ \ '__| '_ \ / _` | |
@@ -38,11 +54,14 @@ DATASEG
 	lists_offset dw 0
 
 	listID_particles dw nullword
+	listID_animation dw nullword
+	animation_speed dw 0
 
 	internal_blockSpriteOffsets dw offset sprite_2, offset sprite_4, offset sprite_8, offset sprite_16, offset sprite_32, offset sprite_64, offset sprite_128, offset sprite_256, offset sprite_512, offset sprite_1024, offset sprite_2048
 	internal_backgroundMaskOffsets dw 3 dup(offset mask_background_two), 3 dup(offset mask_background_four), 3 dup(offset mask_background_eight), 3 dup(offset mask_background_exponent), offset mask_background_plus, offset mask_background_smiley, offset mask_background_wtf, offset mask_background_shmulik
 	
 	internal_keyActions dw 256 dup(nullword)
+
 	;  ____                _           _             
 	; |  _ \ ___ _ __   __| | ___ _ __(_)_ __   __ _ 
 	; |  _ <  __/ | | | (_| |  __/ |  | | | | | (_| |
@@ -111,7 +130,9 @@ DATASEG
 
 	game_boardOffset dw nullword
 	game_rendercycles dw 0
-	game_mode dw 0
+	game_mode dw gamemodePlaying
+	game_loseTimer dw nullword
+	game_score dw 0
 	
 
 CODESEG
@@ -723,7 +744,8 @@ proc BufferClear ;clears the screen buffer
 	ret
 endp BufferClear
 
-proc BufferRender ;renders the screenbuffer over to the video memory
+proc BufferRender
+	; Info: Renders the Screen Buffer onto the video memory.
 	push ax cx di ds si es
 
 	mov ax, ScreenBuffer
@@ -742,7 +764,8 @@ proc BufferRender ;renders the screenbuffer over to the video memory
 	ret
 endp BufferRender
 
-proc RenderScreen ;Renders the game's objects onto the screen.
+proc RenderScreen
+	; Info: Renders the game's objects onto the screen.
 	push ax bx cx dx si
 	call BufferClear
 	
@@ -845,8 +868,11 @@ proc RenderParticles
 		pop si
 		cmp si, 0
 		jne RenderParticles_ForeachContinue
-			inc [word ptr di]
-			inc [word ptr di+2]
+			cmp [word ptr game_mode], gamemodePlaying
+			jne RenderParticles_DontMove
+				inc [word ptr di]
+				inc [word ptr di+2]
+			RenderParticles_DontMove:
 			cmp [word ptr di], 320 ;X border detection
 			jl RenderParticles_DontWrapX
 				sub [word ptr di], (320+100)
@@ -1060,13 +1086,9 @@ proc BufferMaskCenter
 	ret 10
 endp BufferMaskCenter
 
-
-
-proc BufferSprite ;Adds a sprite to the buffer
-	; Parameters:
-    ; - Sprite Offset
-    ; - Top Left X
-    ; - Top Left Y
+proc BufferSprite
+	; Info: Renders a sprite onto the buffer.
+	; Parameters: Sprite Offset, Top Left X, Top Left Y
 	push bp
 	mov bp, sp
 	sub sp, 4 ;Allocate some space for temporary variables
@@ -1221,7 +1243,21 @@ proc BufferSpriteCenter
 	ret 8
 endp BufferSpriteCenter
 
-
+proc GameUpdateLoop
+	; Info: Called every frame render.
+	push ax bx cx dx di si
+	cmp [word ptr game_mode], gamemodeDead ; are we dead boys
+	jne GameUpdateLoop_NotDead ;naah
+		inc [word ptr game_loseTimer]
+		cmp [word ptr game_loseTimer], constant_framesToShowGameOver
+		jne GameUpdateLoop_DontShowGameOver
+			; show the game over screen here
+			mov [word ptr game_loseTimer], nullword
+		GameUpdateLoop_DontShowGameOver:
+	GameUpdateLoop_NotDead:
+	pop si di dx cx bx ax
+	ret
+endp GameUpdateLoop
 
 proc GameSpawnBlock
 	; Info: Spawns a game tile into the board list at a random null position.
@@ -1331,6 +1367,7 @@ proc GameMove
 	
 	push 0
 	call GameSpawnBlock
+	call GameCheckLose
 
 
     pop si di dx cx bx ax
@@ -1419,6 +1456,100 @@ proc GameCollapseLine
 	ret 4
 endp GameCollapseLine
 
+proc GameCheckLose
+	; Info: Checks if the current board has no moves left. If so, sets the game mode accordingly.
+    push ax bx cx dx di si
+	mov cx, 16
+	mov di, [word ptr listOffset_board]
+	jmp GameCheckLose_RunLoop
+
+	GameCheckLose_NotLose:
+		jmp GameCheckLose_Return
+	GameCheckLose_RunLoop:
+		mov bx, 16
+		sub bx, cx ; bx = iteration
+		mov dx, [di] ; DX = tile type
+		cmp dx, nullword ;If there's an empty block, there are available moves.
+		je GameCheckLose_NotLose
+
+		cmp bx, 4 ; if I<4, you can't subtract 4
+		jb GameCheckLose_CantSub4
+			cmp dx, [di-(4*2)] ; Checking if the block type matches an adjacent block type
+			je GameCheckLose_NotLose
+		GameCheckLose_CantSub4:
+		
+		cmp bx, 12 ; if I>=12, you can't add 4
+		jae GameCheckLose_CantAdd4
+			cmp dx, [di+(4*2)] ; Checking if the block type matches an adjacent block type
+			je GameCheckLose_NotLose
+		GameCheckLose_CantAdd4:
+		
+		and bx, 3 ;3 is 11b, meaning it'll mask only the first two bits.
+		cmp bx, 0 ;If the first 2 bits are 00, this block is in the first column, so it can't go left.
+		je GameCheckLose_CantSub1
+			cmp dx, [di-(1*2)] ; Checking if the block type matches an adjacent block type
+			je GameCheckLose_NotLose
+		GameCheckLose_CantSub1:
+		cmp bx, 3 ;If the first 2 bits are 11, this block is in the last column, so it can't go right.
+		je GameCheckLose_CantAdd1
+			cmp dx, [di+(1*2)] ; Checking if the block type matches an adjacent block type
+			je GameCheckLose_NotLose
+		GameCheckLose_CantAdd1:
+
+		add di, 2 ;every block is 2 bytes
+		loop GameCheckLose_RunLoop
+	; Lose
+	push gamemodeDead
+	call GameSetMode
+
+
+	GameCheckLose_Return:
+    pop si di dx cx bx ax
+	ret
+endp GameCheckLose
+
+proc GameSetMode
+	; Info: Sets the game's mode, along with the proper initialization it requires.
+	; Parameters: New Gamemode
+    push bp
+    mov bp, sp
+    push ax bx cx dx di si
+    newGamemode equ [word ptr bp + 4]
+    mov ax, newGamemode
+	cmp [word ptr game_mode], ax
+	je GameSetMode_Ignore
+
+	cmp newGamemode, gamemodePlaying
+	jne GameSetMode_NotPlaying
+		; Set to playing
+		mov [word ptr game_score], 0
+		call InitializeBoard
+	GameSetMode_NotPlaying:
+
+	cmp newGamemode, gamemodeMainMenu
+	jne GameSetMode_NotMainMenu
+		; Set to main menu
+	GameSetMode_NotMainMenu:
+
+	cmp newGamemode, gamemodeDead
+	jne GameSetMode_NotDead
+		; Set to dead
+		mov [word ptr game_loseTimer], 0
+	GameSetMode_NotDead:
+
+	cmp newGamemode, gamemodePause
+	jne GameSetMode_NotPause
+		; Set to pause.
+	GameSetMode_NotPause:
+
+	mov [word ptr game_mode], ax
+
+	GameSetMode_Ignore:
+    pop si di dx cx bx ax
+    pop bp
+	ret 2
+endp GameSetMode
+
 proc GameCalculateBoardIndex
 	; Info: Calculates an index for the board via direction.
 	; Registers: AX, BX, SI
@@ -1471,8 +1602,8 @@ proc GameCalculateBoardOffset
 endp GameCalculateBoardOffset
 
 
-
-proc InitializePalette ;Initializes the palette
+proc InitializePalette
+	; Info: Initializes the palette
 	mov si, offset rendering_palette
 	mov cx, 256
 	mov dx, 3C8h
@@ -1494,7 +1625,8 @@ proc InitializePalette ;Initializes the palette
 	ret
 endp InitializePalette
 
-proc InitializeParticles ;Initializes particles
+proc InitializeParticles
+	; Info: Initializes particles
 	push ax bx cx dx di si
 
 	cmp [word ptr listID_particles], nullword ;If the particles list is null
@@ -1548,7 +1680,8 @@ proc InitializeParticles ;Initializes particles
 	ret
 endp InitializeParticles
 
-proc InitializeBoard ;Initializes the board variables
+proc InitializeBoard
+	; Info: Initializes the board variables
 	push ax bx cx dx di si
 	cmp [word ptr listID_board], nullword ;If the board list is null
 	jnz InitializeBoard_DontCreateListBoard
@@ -1625,6 +1758,8 @@ proc InitializeKeyActions
 		 mov [(2eh * 2) + si], bx ; 'C'
 	mov bx, 2 ;Break
 		 mov [(30h * 2) + si], bx ; 'B'
+	mov bx, 3 ;Restart
+		 mov [(13h * 2) + si], bx ; 'R'
 		 
 	pop si bx
 	ret
@@ -1647,8 +1782,18 @@ proc MainProcessKey
 	mov bx, [word ptr bx + internal_keyActions] ; bx is now the key action
 	cmp bx, nullword
 	je MainProcessKey_Finish
-		cmp bl, 0
-		je MainProcessKey_GameMove
+		; Mode-Specific Actions
+		cmp [word ptr game_mode], gamemodeMainMenu
+		je MainProcessKey_MainMenu
+		cmp [word ptr game_mode], gamemodePlaying
+		je MainProcessKey_Playing
+		cmp [word ptr game_mode], gamemodeDead
+		je MainProcessKey_Dead
+		cmp [word ptr game_mode], gamemodePause
+		je MainProcessKey_Pause
+		MainProcessKey_FinishModeActions:
+
+		; Universal Actions
 		cmp bl, 1
 		je MainProcessKey_Cheat
 		cmp bl, 2
@@ -1657,27 +1802,64 @@ proc MainProcessKey
     pop si di dx cx bx ax
     pop bp
 	ret 2
-	MainProcessKey_Break:
-		mov di, offset listOffset_board
-		call Break
-		jmp MainProcessKey_Finish
-	MainProcessKey_GameMove: ; BL=0, BH=Move Direction
-		mov cl, bh ; Move Direction
-		push cx
-		call GameMove
-		jmp MainProcessKey_Finish
 	MainProcessKey_Cheat: ; BL=1, BH=Block Type
 		mov cl, bh ; Block Type
 		push cx
 		call GameSpawnBlock
 		jmp MainProcessKey_Finish
+	MainProcessKey_Break: ; BL=2, BH=
+		mov di, offset listOffset_board
+		call Break
+		jmp MainProcessKey_Finish
 
 endp MainProcessKey
+
+proc MainProcessKey_MainMenu
+	; Info: Processes a key pressed by the player, in the main menu.
+	; BL = Action Type, BH = Parameter, Any other registers are free to use.
+
+	jmp MainProcessKey_FinishModeActions ; Return
+endp MainProcessKey_MainMenu
+
+proc MainProcessKey_Playing
+	; Info: Processes a key pressed by the player, while in-game.
+	; BL = Action Type, BH = Parameter, Any other registers are free to use.
+	cmp bl, 0
+	je MainProcessKey_GameMove
+
+	jmp MainProcessKey_FinishModeActions ; Return
+
+	MainProcessKey_GameMove: ; BL=0, BH=Move Direction
+		mov cl, bh ; Move Direction
+		push cx
+		call GameMove
+		jmp MainProcessKey_Finish
+endp MainProcessKey_Playing
+
+proc MainProcessKey_Pause
+	; Info: Processes a key pressed by the player, in the pause menu.
+	; BL = Action Type, BH = Parameter, Any other registers are free to use.
+
+	jmp MainProcessKey_FinishModeActions ; Return
+endp MainProcessKey_Pause
+
+proc MainProcessKey_Dead
+	; Info: Processes a key pressed by the player, while dead.
+	; BL = Action Type, BH = Parameter, Any other registers are free to use.
+	cmp bl, 3
+	je MainProcessKey_Restart
+
+	jmp MainProcessKey_FinishModeActions ; Return
+	
+	MainProcessKey_Restart: ; BL=3, BH=None
+		push gamemodePlaying
+		call GameSetMode
+		jmp MainProcessKey_Finish
+endp MainProcessKey_Dead
 
 proc Break
 	ret
 endp Break
-
 
 
 start:
@@ -1715,6 +1897,7 @@ start:
 	GameLoopRender:
 		call RenderScreen
 		call BufferRender
+		call GameUpdateLoop
 		jmp GameLoop
 
 exit:
