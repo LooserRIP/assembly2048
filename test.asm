@@ -19,6 +19,9 @@ start:
 exit:
 	mov ax, 4c00h
 	int 21h
+	mov ax, 5
+	xor bx, bx
+
 
 
 END start

@@ -41,6 +41,8 @@ DATASEG
 
 	internal_blockSpriteOffsets dw offset sprite_2, offset sprite_4, offset sprite_8, offset sprite_16, offset sprite_32, offset sprite_64, offset sprite_128, offset sprite_256, offset sprite_512, offset sprite_1024, offset sprite_2048
 	internal_backgroundMaskOffsets dw 3 dup(offset mask_background_two), 3 dup(offset mask_background_four), 3 dup(offset mask_background_eight), 3 dup(offset mask_background_exponent), offset mask_background_plus, offset mask_background_smiley, offset mask_background_wtf, offset mask_background_shmulik
+	
+	internal_keyActions dw 256 dup(nullword)
 	;  ____                _           _             
 	; |  _ \ ___ _ __   __| | ___ _ __(_)_ __   __ _ 
 	; |  _ <  __/ | | | (_| |  __/ |  | | | | | (_| |
@@ -103,6 +105,9 @@ DATASEG
 	
 	listID_board dw nullword
 	listID_boardAvailable dw nullword
+	listID_boardMerged dw nullword
+	listOffset_board dw nullword
+	listOffset_boardMerged dw nullword
 
 	game_boardOffset dw nullword
 	game_rendercycles dw 0
@@ -384,12 +389,28 @@ proc ListClear ;Clears a list
 	; - List ID
 	push bp
 	mov bp, sp
+	push ax
+	xor ah, ah
+	mov al, nullbyte
+	push [word ptr bp + 4]
+	push ax
+	call ListSetAll
+
+	pop ax bp
+	ret 2
+endp ListClear
+
+proc ListSetAll ;Sets all the list values to a given byte.
+	; Parameters: List ID, Byte to set (lower half)
+	push bp
+	mov bp, sp
 	push ax bx cx dx di si es
 
 	mov ax, ds
 	mov es, ax
 
-	listID equ [word ptr bp + 4]
+	listID equ [word ptr bp + 6]
+	setByte equ [word ptr bp + 4]
 
 	; Get list info offset
 	mov bx, listID
@@ -405,16 +426,16 @@ proc ListClear ;Clears a list
 	mov si, [word ptr bx+4] ;Save the element *length*, this'll serve as the index
 	mul si ;Multiply it by the index
 	mov cx, ax ; CX = ElementLength * Count
-	mov al, nullbyte
+	mov ax, setByte
 	cmp cx, 0
-	jz ListClear_NoLoop
+	jz ListSetAll_NoLoop
 	rep stosb ;mov es:[di], al
-	ListClear_NoLoop:
+	ListSetAll_NoLoop:
 
 	pop es si di dx cx bx ax
 	pop bp
-	ret 2
-endp ListClear
+	ret 4
+endp ListSetAll
 
 proc ListAdd ;Adds something to the list, wrapped around ListSet
 	; Parameters:
@@ -781,8 +802,9 @@ proc RenderBlocks
 
 		cmp [word ptr di], nullword
 		je RenderBlocks_DontRender
-			mov si, offset internal_blockSpriteOffsets
-			add si, [word ptr di]
+			mov si, [word ptr di]
+			shl si, 1 ;Multiply the type by 2, because each offset is a word.
+			add si, offset internal_blockSpriteOffsets
 			push [word ptr si]
 			push ax
 			push dx
@@ -1234,12 +1256,10 @@ proc GameSpawnBlock
 	push [word ptr listID_boardAvailable]
 	call ListCount
 	pop bx
-	; If bx = 0, no available spots, this would mean losing. at the moment,
-	; i'll be jumping to exit.
+	; If bx = 0, no available spots, this would mean check for lose.
+	; this also means i can't spawn any block, so i'll have to skip that.
 	cmp bx, 0
-	jne GameSpawnBlock_NotLose
-		jmp exit
-	GameSpawnBlock_NotLose:
+	je GameSpawnBlock_CantSpawn
 
 	push 0
 	push bx ; List Count
@@ -1251,10 +1271,6 @@ proc GameSpawnBlock
 	call ListGet
 	pop si
 	
-	cmp [word ptr si], nullword
-	jne GameSpawnBlock_NotLoseG
-		jmp exit
-	GameSpawnBlock_NotLoseG:
 
 	push [word ptr listID_board]
 	push [word ptr si]
@@ -1264,7 +1280,7 @@ proc GameSpawnBlock
 	mov ax, tileType
 	mov [word ptr bx], ax
 
-	skiptest:
+	GameSpawnBlock_CantSpawn:
 	pop si di dx cx bx ax
 	pop bp
 	ret 2
@@ -1293,21 +1309,166 @@ proc GameSetBlock
 endp GameSetBlock
 
 proc GameMove
-; Info: Moves the game board in a direction, and when two of the same type hit, calls the merging function.
-; Parameters: Type
-; Returns: 
+	; Info: Moves the game board in a direction, and when two of the same type hit, calls the merging function.
+	; Parameters: Direction (0-3)
     push bp
     mov bp, sp
     push ax bx cx dx di si
-    typeParam equ [word ptr bp + 4]
+    direction equ [word ptr bp + 4]
+
+	push [word ptr listID_boardMerged]
+	push boolFalse
+	call ListSetAll
+
+	xor ax, ax
+	mov cx, 4
+	GameMove_LinesLoop:
+		push direction
+		push ax ; ax is the line index, X
+		call GameCollapseLine
+		inc ax
+		loop GameMove_LinesLoop
 	
-    
+	push 0
+	call GameSpawnBlock
+
+
     pop si di dx cx bx ax
     pop bp
-ret 2
+	ret 2
 endp GameMove
 
+proc GameCollapseLine
+	; Info: Collapses a line of blocks in the game board.
+	; Parameters: Direction, Line Index
+    push bp
+    mov bp, sp
+	sub sp, 2
+    push ax bx cx dx di si
+    direction equ [word ptr bp + 6]
+    lineIndex equ [word ptr bp + 4]
+	originalBlockOffset equ [word ptr bp - 2]
 
+    
+	; LineIndex = X = AX
+	mov ax, lineIndex
+	xor bx, bx ;Y = 0
+
+	mov cx, 4
+	GameCollapseLine_CheckBlockLoop: ;run through the column
+		push direction
+		call GameCalculateBoardOffset ; sets index to si
+		mov dx, [word ptr si] ; DX is now the block type
+		cmp dx, nullword
+		je GameCollapseLine_CheckBlockSkip
+			; Actual block
+			mov originalBlockOffset, si ; originalBlockOffset is now set to BlockIndex+BoardListOffset
+			push bx
+			GameCollapseLine_CollapseBlock:
+				; Looping through to collapse the block
+				cmp bx, 0
+				je GameCollapseLine_BlockSettle ; If block reaches the top wall, settle.
+				dec bx
+				push direction
+				call GameCalculateBoardIndex
+				mov di, si ;Save DI as a copy of the index
+				add di, [word ptr listOffset_boardMerged]
+				shl si, 1 ; Every block is 2 bytes
+				add si, [word ptr listOffset_board] ; SI is now the offset of the soon-to-be block
+				cmp [word ptr si], nullword ; Compare newblock tp air, if so, jump
+				je GameCollapseLine_CollapseBlock ; If it's air, go back to collapsing
+				cmp [byte ptr di], boolTrue ; Check if it's already merged, using the merged board hash
+				je GameCollapseLine_BlockHitSettle ; Hit a block that was already merged.
+				cmp [si], dx ; Compare newblock to old block
+				je GameCollapseLine_BlockMerge ; If newblock type = oldblock type, merge
+				; Naturally go to BlockHitSettle, because newblock hit a block that doesn't share the same type
+
+			GameCollapseLine_BlockHitSettle: ; When a block hits another block, but doesn't merge. activates before BlockSettle.
+				inc bx ; Increase the Y, so it doesn't collapse ON the block it hit.
+			GameCollapseLine_BlockSettle: ;When a block settles.
+				mov si, originalBlockOffset
+				mov [word ptr si], nullword ;Delete the old block
+				push direction
+				call GameCalculateBoardIndex ; SI = Index, per (AX,BX)
+				shl si, 1 ; Every block is 2 bytes
+				add si, [word ptr listOffset_board] ; SI is now the offset of the soon-to-be block
+				mov [word ptr si], dx ; Set the new block to the type of the old block.
+				jmp GameCollapseLine_CollapseFinished ; Make sure we don't accidentally merge
+			GameCollapseLine_BlockMerge:  ;When a block merges with another block.
+				mov si, originalBlockOffset
+				mov [word ptr si], nullword ; Delete the old block
+				push direction
+				call GameCalculateBoardIndex ; SI = Index, per (AX,BX)
+				mov di, si
+				add di, [word ptr listOffset_boardMerged]
+				mov [byte ptr di], boolTrue ;Set the merge hash at this index to true.
+				shl si, 1 ; Every block is 2 bytes
+				add si, [word ptr listOffset_board] ; SI = New Block Offset
+				inc dx ; Increase the type, since we're going up a level.
+				mov [word ptr si], dx ;Set the merged block to the increased type.
+
+			GameCollapseLine_CollapseFinished: ;When it's finished, we need to pop BX back out.
+				pop bx
+		GameCollapseLine_CheckBlockSkip:
+		inc bx
+		loop GameCollapseLine_CheckBlockLoop
+
+    pop si di dx cx bx ax
+	add sp, 2
+    pop bp
+	ret 4
+endp GameCollapseLine
+
+proc GameCalculateBoardIndex
+	; Info: Calculates an index for the board via direction.
+	; Registers: AX, BX, SI
+	; Parameters: Direction, X (AX), Y (BX)
+	; Returns: List Index (SI)
+    push bp
+    mov bp, sp
+	push dx ax bx
+    direction equ [word ptr bp + 4]
+	mov dx, direction
+	and dx, 1
+	jz GameMove_NotDownRight
+		; Down Code - Y=(Y-3)
+		neg bx
+		add bx, 3
+	GameMove_NotDownRight:
+
+	cmp direction, 2
+	jb GameMove_NotLeftRight
+		; Left Right Code - Swap around the registers.
+		xor ax, bx
+		xor bx, ax
+		xor ax, bx
+	GameMove_NotLeftRight:
+
+
+
+	mov si, bx
+	shl si, 2
+	add si, ax
+
+	pop bx ax dx
+    pop bp
+	ret 2
+endp GameCalculateBoardIndex
+
+proc GameCalculateBoardOffset
+	; Info: Calculates an element offset for the board.
+	; Registers: AX, BX, SI
+	; Parameters: Direction, X (AX), Y (BX)
+	; Returns: List Index (SI)
+    push bp
+    mov bp, sp
+	push [word ptr bp + 4]
+	call GameCalculateBoardIndex
+	shl si, 1
+	add si, [word ptr listOffset_board]
+    pop bp
+	ret 2
+endp GameCalculateBoardOffset
 
 
 
@@ -1397,20 +1558,29 @@ proc InitializeBoard ;Initializes the board variables
 		call ListCreate
 		pop [word ptr listID_board] ; List ID
 
+		push [word ptr listID_board]
+		push 0
+		call ListGet
+		pop [word ptr listOffset_board] ;board offset
+
 		push 2 
 		push 16 	
 		call ListCreate ;Creating the same list as board, that hosts the indices that are available to spawn on
 		pop [word ptr listID_boardAvailable] ; List ID
+		
+		push 1 
+		push 16 	
+		call ListCreate ;Creating a 16 byte list, that hosts a hash of the board indices that were merged on
+		pop [word ptr listID_boardMerged] ; List ID
+
+		push [word ptr listID_boardMerged]
+		push 0
+		call ListGet
+		pop [word ptr listOffset_boardMerged] ;board offset
 	InitializeBoard_DontCreateListBoard:
-
-
-	xor ax, ax
-
-	push [word ptr listID_boardAvailable] ; List ID
-	push ax
-	call ListGet
-	pop bx
 	
+	push [word ptr listID_board]
+	call ListClear
 	push [word ptr listID_boardAvailable]
 	call ListClear
 
@@ -1433,6 +1603,33 @@ proc InitializeInternal
 	ret
 endp InitializeInternal
 
+proc InitializeKeyActions
+	; Info: Initializes all the key actions.
+	push bx si
+	mov si, offset internal_keyActions
+	mov bl, 0 ;Game Move
+		mov bh, 0 ;Direction Up
+		 mov [(11h * 2) + si], bx ; 'W'
+		 mov [(48h * 2) + si], bx ; Up Arrow
+		mov bh, 1 ;Direction Down
+		 mov [(1fh * 2) + si], bx ; 'S'
+		 mov [(50h * 2) + si], bx ; Down Arrow
+		mov bh, 2 ;Direction Left
+		 mov [(1eh * 2) + si], bx ; 'A'
+		 mov [(4bh * 2) + si], bx ; Left Arrow
+		mov bh, 3 ;Direction Left
+		 mov [(20h * 2) + si], bx ; 'D'
+		 mov [(4dh * 2) + si], bx ; Right Arrow
+	mov bl, 1 ;Cheat
+		mov bh, 3 ;Spawn '16' Block
+		 mov [(2eh * 2) + si], bx ; 'C'
+	mov bx, 2 ;Break
+		 mov [(30h * 2) + si], bx ; 'B'
+		 
+	pop si bx
+	ret
+endp InitializeKeyActions
+
 proc MainProcessKey
 	; Info: Processes a key pressed by the player.
 	; Parameters: ScanCode
@@ -1440,35 +1637,46 @@ proc MainProcessKey
     mov bp, sp
     push ax bx cx dx di si
     scanCode equ [word ptr bp + 4]
+	xor ax, ax
 	xor cx, cx
-
-	cmp scanCode, 48h ; Up Pressed
-	jne MainProcessKey_SkipUp
-		mov cx, 0 ; Move Type
-		push cx
-		call GameMove
-	MainProcessKey_SkipUp:
-
-	cmp scanCode, 50h ; Down Pressed
-	jne MainProcessKey_SkipDown
-		mov cx, 1 ; Move Type
-		push cx
-		call GameMove
-	MainProcessKey_SkipDown:
-
-	cmp scanCode, 2eh ; 'C' Pressed
-	jne MainProcessKey_SkipC
-		push 1
-		call GameSpawnBlock
-	MainProcessKey_SkipC:
-
-    
+	xor dx, dx
+	xor di, di
+	xor si, si ;reset all my registers just for fun :)
+	mov bx, scanCode
+	shl bx, 1
+	mov bx, [word ptr bx + internal_keyActions] ; bx is now the key action
+	cmp bx, nullword
+	je MainProcessKey_Finish
+		cmp bl, 0
+		je MainProcessKey_GameMove
+		cmp bl, 1
+		je MainProcessKey_Cheat
+		cmp bl, 2
+		je MainProcessKey_Break
+    MainProcessKey_Finish:
     pop si di dx cx bx ax
     pop bp
 	ret 2
+	MainProcessKey_Break:
+		mov di, offset listOffset_board
+		call Break
+		jmp MainProcessKey_Finish
+	MainProcessKey_GameMove: ; BL=0, BH=Move Direction
+		mov cl, bh ; Move Direction
+		push cx
+		call GameMove
+		jmp MainProcessKey_Finish
+	MainProcessKey_Cheat: ; BL=1, BH=Block Type
+		mov cl, bh ; Block Type
+		push cx
+		call GameSpawnBlock
+		jmp MainProcessKey_Finish
+
 endp MainProcessKey
 
-
+proc Break
+	ret
+endp Break
 
 
 
@@ -1484,6 +1692,7 @@ start:
 	mov ax, 13h
 	int 10h
 
+	call InitializeKeyActions
 	call InitializePalette
 	call InitializeParticles
 	call InitializeBoard
