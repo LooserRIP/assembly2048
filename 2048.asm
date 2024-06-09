@@ -17,6 +17,7 @@ DATASEG
 	; | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
 	;  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
 	constant_framesToShowGameOver equ 60
+	constant_animationTotalFrames equ 64
 
 	nullbyte equ 0ffh
 	nullword equ 0ffffh
@@ -55,12 +56,14 @@ DATASEG
 
 	listID_particles dw nullword
 	listID_animation dw nullword
-	animation_speed dw 0
+	listOffset_animation dw nullword
 
 	internal_blockSpriteOffsets dw offset sprite_2, offset sprite_4, offset sprite_8, offset sprite_16, offset sprite_32, offset sprite_64, offset sprite_128, offset sprite_256, offset sprite_512, offset sprite_1024, offset sprite_2048
 	internal_backgroundMaskOffsets dw 3 dup(offset mask_background_two), 3 dup(offset mask_background_four), 3 dup(offset mask_background_eight), 3 dup(offset mask_background_exponent), offset mask_background_plus, offset mask_background_smiley, offset mask_background_wtf, offset mask_background_shmulik
 	
 	internal_keyActions dw 256 dup(nullword)
+
+	internal_curveCache db (12*64) dup(nullbyte)
 
 	;  ____                _           _             
 	; |  _ \ ___ _ __   __| | ___ _ __(_)_ __   __ _ 
@@ -68,6 +71,9 @@ DATASEG
 	; |_| \_\___|_| |_|\__,_|\___|_|  |_|_| |_|\__, |
 	;                                          |___/ 
 	
+	; Misc
+	rendering_animationFrame dw nullword
+
 	; Palettes
     rendering_palette dq 2c2b47394f3f2b38h,3d262553333247h,8f8a0b655e0b554eh,195fb9e1309baf0eh,0e8572cbb4c217e46h,22195f8787f07c57h,7de82c4bbb21267eh,8e394e7287bdf057h,65d4f641a7cf3f6bh,89503d6e4f91faf8h,0c66eedba4ac69a44h,748944556e3da6fch,0fca690ed6e66c64ah,0fc3b3be83423aed0h,69deff51b4ff4f8ch,75bbd1648aa85085h,0b4ffb5f6f48bdcf4h,72b4f9e9d497959ah,9b87fcf4a2f9f9deh,0c4b7aca8adadad9eh,97bd2eaeaeac4c4h,0cef80aaaf5009ddbh,0ff00d4ff50e1fd60h,7477ce6f3bc2aaffh,45d08166cf7256ceh,0eb3d5ada858cd847h,0c7bfeeafcbebc5ach,65d8474cd36d53c9h,0bed3ed4fh,68 dup(0h)
 	
@@ -114,6 +120,8 @@ DATASEG
 	mask_background_shmulik dq 70f0d0400351850h,7450d0407390d04h,0a3f0a040a210a04h,0a2d08040b1b0904h,0a3409030c270804h,110403070b160903h,0a03030407050306h,0d0602060c4a0602h,122f02050a250205h,0f09020405400402h,0a130203124b0204h,0a1c01050a4b0203h,60f01030d490401h,645010306390103h,0c070103080b0301h,63f020110030301h,804020106420201h,0b1f01020a160102h,0d0401020c4c0102h,110b0102104c0201h,903010113340102h,91f010109140101h,0b4e010109260101h,0d4c01010c150101h,113101010e0c0101h,114d010111330101h,122e0101120b0101h,2 dup(0h)
 	mask_background_smiley dq 10080208000e1818h,70f040207080402h,0e1103020d050302h,0e0703010d130202h,0f0f01020c040102h,0f0801010d040101h,100601010f130101h,10100101h,2 dup(0h)
 
+	
+
 
 	;   ____                        _                _      
 	;  / ___| __ _ _ __ ___   ___  | |    ___   __ _(_) ___ 
@@ -125,14 +133,19 @@ DATASEG
 	listID_board dw nullword
 	listID_boardAvailable dw nullword
 	listID_boardMerged dw nullword
+	listID_boardAnimation dw nullword
+
 	listOffset_board dw nullword
 	listOffset_boardMerged dw nullword
+	listOffset_boardAnimation dw nullword
 
 	game_boardOffset dw nullword
 	game_rendercycles dw 0
 	game_mode dw gamemodePlaying
 	game_loseTimer dw nullword
 	game_score dw 0
+
+
 	
 
 CODESEG
@@ -296,6 +309,80 @@ proc NumberRandom ;takes a min & max, returns a random number
 	pop bp
 	ret 2
 endp NumberRandom
+
+proc NumberCubicCurve
+	; Info: Returns a cubic out curve, using some fancy shmancy math
+	; Parameters: N Start, N End, Frame
+	; Returns: Final Coordinate
+    push bp
+    mov bp, sp
+    push ax bx cx dx di si
+    nStart equ [word ptr bp + 8]
+    nEnd equ [word ptr bp + 6]
+    frame equ [word ptr bp + 4]
+
+	xor dx, dx
+	mov ax, constant_animationTotalFrames
+	imul ax
+	mov cx, ax ; CX = G^2
+	mov bx, nEnd
+	sub bx, nStart
+	shl bx, 5 ; BX = S(Ne-Ns)
+	xor dx, dx
+	mov ax, constant_animationTotalFrames
+	sub ax, frame ; AX = (G-F)
+	mov si, ax ; SI = (G-F)
+	imul si ; AX = (G-F)^2
+	imul bx ; DX:AX = S(Ne-Ns)((G-F)^2)
+	idiv cx ; AX = S(Ne-Ns)((G-F)^2) / G^2
+	imul si ; AX = (G-F)^3
+	mov cx, constant_animationTotalFrames
+	idiv cx ; AX = S(Ne-Ns)((G-F)^3) / G^3
+	mov cx, nEnd
+	shl cx, 5
+	sub cx, ax ; CX = SNe - (S(Ne-Ns)((G-F)^3) / G^3)
+	mov nStart, cx ; Return CX
+    
+    pop si di dx cx bx ax
+    pop bp
+	ret 4
+endp NumberCubicCurve
+
+proc NumberCubicCurveCache
+	; Info: Returns a cubic out curve, using a cache of fancy shmancy math.
+	; Parameters: N Start, N End, Frame
+	; Returns: Final Coordinate
+    push bp
+    mov bp, sp
+    push ax bx cx dx di si
+    nStart equ [word ptr bp + 8]
+    nEnd equ [word ptr bp + 6]
+    frame equ [word ptr bp + 4]
+
+	mov di, nStart
+	cmp nEnd, di
+	jb NumberCubicCurveCache_DontFix
+		dec nEnd
+	NumberCubicCurveCache_DontFix:
+	shl di, 1
+	add di, nStart ; AX = nStart * 3
+	add di, nEnd ; AX = (3*nStart)+newNEnd
+	mov bx, di
+	call Break
+
+	shl di, 6
+	add di, frame
+	add di, offset internal_curveCache
+	xor ah, ah
+	mov al, [byte ptr di]
+	mov nStart, ax
+    
+    pop si di dx cx bx ax
+    pop bp
+	ret 4
+endp NumberCubicCurveCache
+
+
 
 proc ListCreate ;Creates a list to the allocation
 	; Parameters:
@@ -505,7 +592,14 @@ proc ListGetAdd ;Gets the offset of the first null element in a list
 
 	; Get the list count, this'll serve as an index.
 	mov cx, [word ptr bx+6]
-	inc [word ptr bx+6] ;Increase the index
+	inc [word ptr bx+6] ;Increase the count
+	cmp cx, [word ptr bx+4] 
+	jb ListGetAdd_NotOverflowing
+		;if index >= listlength
+		; If it is overflowing, we will turn back the count one dial.
+		dec [word ptr bx+6] ;Decrease the count
+		dec cx ;Decrease the index
+	ListGetAdd_NotOverflowing:
 	push listID
 	push cx ;Index
 	call ListGet
@@ -772,6 +866,7 @@ proc RenderScreen
 	call RenderParticles
 	call RenderBoard
 	call RenderBlocks
+	call RenderAnimation
 
 	inc [word ptr game_rendercycles]
 	pop si dx cx bx ax
@@ -820,6 +915,11 @@ proc RenderBlocks
 	push bx ;we want just the offset, bx is already 0.
 	call ListGet
 	pop di ; List offset is here
+	cmp [word ptr rendering_animationFrame], constant_animationTotalFrames
+	jae RenderBlocks_DontCheckNull
+		cmp [word ptr rendering_animationFrame], nullword
+		jne RenderBlocks_Skip
+	RenderBlocks_DontCheckNull:
 
 	RenderBlocks_Loop:
 
@@ -845,11 +945,97 @@ proc RenderBlocks
 		RenderBlocks_SkipNewRow:
 		loop RenderBlocks_Loop
 	
-	
-
+	RenderBlocks_Skip:
 	pop si di dx cx bx ax
 	ret
 endp RenderBlocks
+
+
+proc RenderAnimation
+	; Info: Renders the block animation list to the buffer.
+	push ax bx cx dx di si
+	cmp [word ptr rendering_animationFrame], nullword
+	je RenderAnimation_Finish
+	cmp [word ptr rendering_animationFrame], constant_animationTotalFrames
+	jae RenderAnimation_ClearList ;If the frames match the total frames, animation is over and does not need to be displayed.
+	
+	push [word ptr listID_animation]
+	push offset RenderAnimation_animationForeach
+	push boolFalse
+	call ListForeach ;Foreach On List 'animation'
+	jmp RenderAnimation_animationForeachExit
+	RenderAnimation_animationForeach:
+	;DI = offset, CX = iterations left, AX = list element's length
+		cmp [word ptr di], 0 ;Animation Type 0
+		jne RenderAnimation_SkipType0
+			jmp RenderAnimation_Type0
+		RenderAnimation_SkipType0:
+		RenderAnimation_FinishType:
+		ret
+	RenderAnimation_animationForeachExit:
+	inc [word ptr rendering_animationFrame]
+
+	jmp RenderAnimation_Finish
+		RenderAnimation_ClearList:
+			; Here we need to clear the list of animation
+			mov [word ptr rendering_animationFrame], nullword
+			push [word ptr listID_animation]
+			call ListClear
+	RenderAnimation_Finish:
+	pop si di dx cx bx ax
+	ret
+endp RenderAnimation
+
+proc RenderAnimation_Type0
+	mov bx, [word ptr di+4]
+	cmp bx, [word ptr di+8]
+	je RenderAnimation_Type0_DontCurveX
+		push bx ; If X moves
+		push [word ptr di+8]
+		push [word ptr rendering_animationFrame]
+		call NumberCubicCurveCache ;Curve the X
+		pop bx
+		jmp RenderAnimation_Type0_CurvedX
+	RenderAnimation_Type0_DontCurveX: ; If X doesn't move, multiply coordinate by 32
+		shl bx, 5
+	RenderAnimation_Type0_CurvedX:
+	mov dx, [word ptr di+6]
+	cmp dx, [word ptr di+10]
+	je RenderAnimation_Type0_DontCurveY
+		push dx ; If Y moves
+		push [word ptr di+10]
+		push [word ptr rendering_animationFrame]
+		call NumberCubicCurveCache ;Curve the Y
+		pop dx
+		jmp RenderAnimation_Type0_CurvedY
+	RenderAnimation_Type0_DontCurveY: ; If X doesn't move, multiply coordinate by 32
+		shl dx, 5
+	RenderAnimation_Type0_CurvedY:
+	
+	add bx, 96 ;X
+	add dx, 36 ;Y
+
+	mov si, [word ptr di+2] ; Block Type
+	shl si, 1 ;Multiply the type by 2, because each offset is a word.
+	push [word ptr si+internal_blockSpriteOffsets]
+	push bx
+	push dx
+	call BufferSprite
+
+	cmp [word ptr di+12], nullword ;Merge Data
+	je RenderAnimation_Type0_NotMerge
+		; This is a merge, we need to draw an extra on top of this
+		mov si, [word ptr di+2] ; Block Type
+		inc si
+		shl si, 1 ;Multiply the type by 2, because each offset is a word.
+		push [word ptr si+internal_blockSpriteOffsets]
+		push bx
+		push dx
+		call BufferSprite
+	RenderAnimation_Type0_NotMerge:
+	jmp RenderAnimation_FinishType
+endp RenderAnimation_Type0
+
 
 
 proc RenderParticles
@@ -1356,6 +1542,10 @@ proc GameMove
 	push boolFalse
 	call ListSetAll
 
+	mov [word ptr rendering_animationFrame], 0
+	push [word ptr listID_animation]
+	call ListClear
+
 	xor ax, ax
 	mov cx, 4
 	GameMove_LinesLoop:
@@ -1369,7 +1559,6 @@ proc GameMove
 	call GameSpawnBlock
 	call GameCheckLose
 
-
     pop si di dx cx bx ax
     pop bp
 	ret 2
@@ -1380,11 +1569,12 @@ proc GameCollapseLine
 	; Parameters: Direction, Line Index
     push bp
     mov bp, sp
-	sub sp, 2
+	sub sp, 4
     push ax bx cx dx di si
     direction equ [word ptr bp + 6]
     lineIndex equ [word ptr bp + 4]
 	originalBlockOffset equ [word ptr bp - 2]
+	originalY equ [word ptr bp - 4]
 
     
 	; LineIndex = X = AX
@@ -1400,11 +1590,12 @@ proc GameCollapseLine
 		je GameCollapseLine_CheckBlockSkip
 			; Actual block
 			mov originalBlockOffset, si ; originalBlockOffset is now set to BlockIndex+BoardListOffset
+			mov originalY, bx
 			push bx
 			GameCollapseLine_CollapseBlock:
 				; Looping through to collapse the block
 				cmp bx, 0
-				je GameCollapseLine_BlockSettle ; If block reaches the top wall, settle.
+				je GameCollapseLine_GotoBlockSettle ; If block reaches the top wall, settle.
 				dec bx
 				push direction
 				call GameCalculateBoardIndex
@@ -1415,46 +1606,84 @@ proc GameCollapseLine
 				cmp [word ptr si], nullword ; Compare newblock tp air, if so, jump
 				je GameCollapseLine_CollapseBlock ; If it's air, go back to collapsing
 				cmp [byte ptr di], boolTrue ; Check if it's already merged, using the merged board hash
-				je GameCollapseLine_BlockHitSettle ; Hit a block that was already merged.
+				je GameCollapseLine_GotoBlockHitSettle ; Hit a block that was already merged.
 				cmp [si], dx ; Compare newblock to old block
-				je GameCollapseLine_BlockMerge ; If newblock type = oldblock type, merge
+				je GameCollapseLine_GotoBlockMerge ; If newblock type = oldblock type, merge
 				; Naturally go to BlockHitSettle, because newblock hit a block that doesn't share the same type
-
-			GameCollapseLine_BlockHitSettle: ; When a block hits another block, but doesn't merge. activates before BlockSettle.
-				inc bx ; Increase the Y, so it doesn't collapse ON the block it hit.
-			GameCollapseLine_BlockSettle: ;When a block settles.
-				mov si, originalBlockOffset
-				mov [word ptr si], nullword ;Delete the old block
-				push direction
-				call GameCalculateBoardIndex ; SI = Index, per (AX,BX)
-				shl si, 1 ; Every block is 2 bytes
-				add si, [word ptr listOffset_board] ; SI is now the offset of the soon-to-be block
-				mov [word ptr si], dx ; Set the new block to the type of the old block.
-				jmp GameCollapseLine_CollapseFinished ; Make sure we don't accidentally merge
-			GameCollapseLine_BlockMerge:  ;When a block merges with another block.
-				mov si, originalBlockOffset
-				mov [word ptr si], nullword ; Delete the old block
-				push direction
-				call GameCalculateBoardIndex ; SI = Index, per (AX,BX)
-				mov di, si
-				add di, [word ptr listOffset_boardMerged]
-				mov [byte ptr di], boolTrue ;Set the merge hash at this index to true.
-				shl si, 1 ; Every block is 2 bytes
-				add si, [word ptr listOffset_board] ; SI = New Block Offset
-				inc dx ; Increase the type, since we're going up a level.
-				mov [word ptr si], dx ;Set the merged block to the increased type.
-
-			GameCollapseLine_CollapseFinished: ;When it's finished, we need to pop BX back out.
-				pop bx
+				jmp GameCollapseLine_GotoBlockHitSettle
+				GameCollapseLine_GotoBlockHitSettle:
+					jmp GameCollapseLine_BlockHitSettle
+				GameCollapseLine_GotoBlockSettle:
+					jmp GameCollapseLine_BlockSettle
+				GameCollapseLine_GotoBlockMerge:
+					jmp GameCollapseLine_BlockMerge
 		GameCollapseLine_CheckBlockSkip:
 		inc bx
 		loop GameCollapseLine_CheckBlockLoop
 
     pop si di dx cx bx ax
-	add sp, 2
+	add sp, 4
     pop bp
 	ret 4
 endp GameCollapseLine
+
+proc GameCollapseLine_SettleCases
+	; Info: Extension for GameCollapseLine, Handles all the ways blocks can settle.
+    direction equ [word ptr bp + 6]
+    lineIndex equ [word ptr bp + 4]
+	originalBlockOffset equ [word ptr bp - 2]
+	originalY equ [word ptr bp - 4]
+
+	GameCollapseLine_BlockHitSettle: ; When a block hits another block, but doesn't merge. activates before BlockSettle.
+		inc bx ; Increase the Y, so it doesn't collapse ON the block it hit.
+	GameCollapseLine_BlockSettle: ;When a block settles.
+		; Animation Code
+		push direction
+		push 0 ; Animation Type (0 is Slide)
+		push dx ; Block Type
+		push ax ; Start X
+		push originalY ; Start Y
+		push ax ; End X
+		push bx ; End Y
+		push nullword
+		call AnimationAddDirection
+
+		mov si, originalBlockOffset
+		mov [word ptr si], nullword ;Delete the old block
+		push direction
+		call GameCalculateBoardIndex ; SI = Index, per (AX,BX)
+		shl si, 1 ; Every block is 2 bytes
+		add si, [word ptr listOffset_board] ; SI is now the offset of the soon-to-be block
+		mov [word ptr si], dx ; Set the new block to the type of the old block.
+		jmp GameCollapseLine_CollapseFinished ; Make sure we don't accidentally merge
+	GameCollapseLine_BlockMerge:  ;When a block merges with another block.
+		; Animation Code
+		push direction
+		push 0 ; Animation Type (0 is Slide)
+		push dx ; Block Type
+		push ax ; Start X
+		push originalY ; Start Y
+		push ax ; End X
+		push bx ; End Y
+		push direction
+		call AnimationAddDirection
+
+		mov si, originalBlockOffset
+		mov [word ptr si], nullword ; Delete the old block
+		push direction
+		call GameCalculateBoardIndex ; SI = Index, per (AX,BX)
+		mov di, si
+		add di, [word ptr listOffset_boardMerged]
+		mov [byte ptr di], boolTrue ;Set the merge hash at this index to true.
+		shl si, 1 ; Every block is 2 bytes
+		add si, [word ptr listOffset_board] ; SI = New Block Offset
+		inc dx ; Increase the type, since we're going up a level.
+		mov [word ptr si], dx ;Set the merged block to the increased type.
+
+	GameCollapseLine_CollapseFinished: ;When it's finished, we need to pop BX back out.
+		pop bx
+	jmp GameCollapseLine_CheckBlockSkip
+endp GameCollapseLine_SettleCases
 
 proc GameCheckLose
 	; Info: Checks if the current board has no moves left. If so, sets the game mode accordingly.
@@ -1765,6 +1994,180 @@ proc InitializeKeyActions
 	ret
 endp InitializeKeyActions
 
+proc InitializeAnimation
+	; Info: Initializes the necessary variables for block animations.
+    push ax bx cx dx di si
+	cmp [word ptr listID_animation], nullword ;If the animation list is null
+	jnz InitializeAnimation_DontCreateList
+		;Creating the list here
+		push 14 ; AnimType, BlockType, XStart, YStart, XEnd, YEnd, MergeData
+		push 16 ;Board is 16 tiles, so max 16 animations. but 20 for safety.
+		call ListCreate
+		pop [word ptr listID_animation] ; List ID
+
+		push [word ptr listID_animation]
+		push 0
+		call ListGet
+		pop [word ptr listOffset_animation] ;animation offset
+
+		push 1 
+		push 16 	
+		call ListCreate ;Creating a 16 byte list, that hosts a hash of the board indices that are currently animated
+		pop [word ptr listID_boardAnimation] ; List ID
+
+		push [word ptr listID_boardAnimation]
+		push 0
+		call ListGet
+		pop [word ptr listOffset_boardAnimation] ;board offset
+	InitializeAnimation_DontCreateList:
+	
+	mov [word ptr rendering_animationFrame], nullword
+	push [word ptr listID_animation]
+	call ListClear
+
+	xor ah, ah
+	mov al, nullbyte
+	push [word ptr listID_boardAnimation]
+	push ax
+	call ListSetAll
+
+    pop si di dx cx bx ax
+	ret
+endp InitializeAnimation
+
+proc InitializeCurve
+	; Info: Initializes the internal_curveCache, so that animation doesn't have to use costy math.
+	push ax bx cx dx di si
+	
+	mov di, offset internal_curveCache
+	mov cx, 4
+	InitializeCurve_NSLoop:
+		mov bx, 4
+		sub bx, cx ; BX = NS
+		push cx
+		xor ax, ax ; AX = NE
+		mov cx, 3
+		InitializeCurve_NELoop:
+			cmp ax, bx
+			jne InitializeCurve_NotMatching
+				inc ax
+			InitializeCurve_NotMatching:
+			; Here we iterate through all 64 frames
+			push cx
+			mov cx, 64
+			xor si, si
+				InitializeCurve_FrameLoop:
+				push bx ax si ; NStart, NEnd, Frame
+				call NumberCubicCurve
+				pop dx
+				mov [byte ptr di], dl
+				inc di
+				inc si
+				loop InitializeCurve_FrameLoop
+			pop cx
+			inc ax
+			loop InitializeCurve_NELoop
+		pop cx
+		loop InitializeCurve_NSLoop
+
+	pop si di dx cx bx ax
+	ret
+endp InitializeCurve
+
+
+
+
+
+
+
+
+
+
+proc AnimationAdd
+	; Info: Adds a block animation to the global list.
+	; Parameters: Animation Type, Block Type, X Start, Y Start, X End, Y End, Merge Data
+    push bp
+    mov bp, sp
+    push bx di
+
+	push [word ptr listID_animation]
+	call ListGetAdd
+	pop di
+	mov bx, [word ptr bp + 16]
+	mov [di], bx
+	mov bx, [word ptr bp + 14]
+	mov [di+2], bx
+	mov bx, [word ptr bp + 12]
+	mov [di+4], bx
+	mov bx, [word ptr bp + 10]
+	mov [di+6], bx
+	mov bx, [word ptr bp + 8]
+	mov [di+8], bx
+	mov bx, [word ptr bp + 6]
+	mov [di+10], bx
+	mov bx, [word ptr bp + 4]
+	mov [di+12], bx
+    
+	pop di bx
+	pop bp
+	ret 14
+endp AnimationAdd
+
+proc AnimationAddDirection
+	; Info: Adds a block animation to the global list, provided with a direction (0-3)
+	; Parameters: Direction, Animation Type, Block Type, X Start, Y Start, X End, Y End, Merge Data
+    push bp
+    mov bp, sp
+    push ax bx cx dx di si
+	direction equ [word ptr bp + 18]
+
+	mov ax, [word ptr bp + 12] ; X Start
+	mov cx, [word ptr bp + 10] ; Y Start
+	mov dx, [word ptr bp + 8] ; X End
+	mov si, [word ptr bp + 6] ; Y End
+
+	mov bx, direction
+	and bx, 1
+	jz AnimationAddDirection_NotDownRight
+		; Down Code - Y=(Y-3)
+		neg cx
+		add cx, 3
+		neg si
+		add si, 3
+	AnimationAddDirection_NotDownRight:
+
+	cmp direction, 2
+	jb AnimationAddDirection_NotLeftRight
+		; Left Right Code - Swap around the registers.
+		xor ax, cx
+		xor cx, ax
+		xor ax, cx
+
+		xor dx, si
+		xor si, dx
+		xor dx, si
+	AnimationAddDirection_NotLeftRight:
+
+	push [word ptr listID_animation]
+	call ListGetAdd
+	pop di
+	mov bx, [word ptr bp + 16]
+	mov [di], bx
+	mov bx, [word ptr bp + 14]
+	mov [di+2], bx
+	mov [di+4], ax
+	mov [di+6], cx
+	mov [di+8], dx
+	mov [di+10], si
+	mov bx, [word ptr bp + 4]
+	mov [di+12], bx
+    
+	pop si di dx cx bx ax
+	pop bp
+	ret 16
+endp AnimationAddDirection
+
+
 proc MainProcessKey
 	; Info: Processes a key pressed by the player.
 	; Parameters: ScanCode
@@ -1784,13 +2187,20 @@ proc MainProcessKey
 	je MainProcessKey_Finish
 		; Mode-Specific Actions
 		cmp [word ptr game_mode], gamemodeMainMenu
-		je MainProcessKey_MainMenu
+		jne MainProcessKey_SkipMainMenu
+			jmp MainProcessKey_MainMenu
+			MainProcessKey_SkipMainMenu:
 		cmp [word ptr game_mode], gamemodePlaying
-		je MainProcessKey_Playing
+		jne MainProcessKey_SkipPlaying
+			jmp MainProcessKey_Playing
+			MainProcessKey_SkipPlaying:
 		cmp [word ptr game_mode], gamemodeDead
-		je MainProcessKey_Dead
+		jne MainProcessKey_SkipDead
+			jmp MainProcessKey_Dead
+			MainProcessKey_SkipDead:
 		cmp [word ptr game_mode], gamemodePause
-		je MainProcessKey_Pause
+		jne MainProcessKey_FinishModeActions
+			jmp MainProcessKey_Pause
 		MainProcessKey_FinishModeActions:
 
 		; Universal Actions
@@ -1808,7 +2218,6 @@ proc MainProcessKey
 		call GameSpawnBlock
 		jmp MainProcessKey_Finish
 	MainProcessKey_Break: ; BL=2, BH=
-		mov di, offset listOffset_board
 		call Break
 		jmp MainProcessKey_Finish
 
@@ -1878,6 +2287,8 @@ start:
 	call InitializePalette
 	call InitializeParticles
 	call InitializeBoard
+	call InitializeAnimation
+	call InitializeCurve
 
 	xor ax, ax
 	xor bx, bx

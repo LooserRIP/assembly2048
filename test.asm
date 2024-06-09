@@ -16,6 +16,10 @@ start:
 	mov cl, [byte ptr ds:1]
     mov bx, [word ptr ds:2]
 
+	mov ax, 2710h
+	mov ax, 0e10h
+	mov ax, 49h
+
 exit:
 	mov ax, 4c00h
 	int 21h
