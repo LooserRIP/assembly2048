@@ -18,6 +18,7 @@ DATASEG
 	;  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
 	constant_framesToShowGameOver equ 60
 	constant_animationTotalFrames equ 64
+	constant_mergeScreenshakeFrame equ 3
 
 	nullbyte equ 0ffh
 	nullword equ 0ffffh
@@ -49,6 +50,8 @@ DATASEG
 		   dw 0f7bdh,4be9h,0abf5h,8d41h,0ca7fh,0b5h,0a597h,0e1bfh,0f257h,0efh,96fdh,47b1h,0a1a5h,0aba7h,93efh,6a91h,0eacbh,2351h,1e95h,2287h,0e5h,0d661h
     internal_primeCounter dw 0
 
+	internal_shouldSpawnBlock db boolFalse
+
     lists_alloc db 5000 dup(nullbyte)
 	lists_info db 300 dup (00h)
 	lists_amount dw 0
@@ -73,10 +76,18 @@ DATASEG
 	
 	; Misc
 	rendering_animationFrame dw nullword
+	rendering_mergedScore db boolFalse
+
+	rendering_shake_framesLeft dw nullword
+	rendering_shake_priority dw 0
+	rendering_shake_strength dw 0
+	rendering_shake_xOffset dw 0
+	rendering_shake_yOffset dw 0
+
 
 	; Palettes
-    rendering_palette dq 2c2b47394f3f2b38h,3d262553333247h,8f8a0b655e0b554eh,195fb9e1309baf0eh,0e8572cbb4c217e46h,22195f8787f07c57h,7de82c4bbb21267eh,8e394e7287bdf057h,65d4f641a7cf3f6bh,89503d6e4f91faf8h,0c66eedba4ac69a44h,748944556e3da6fch,0fca690ed6e66c64ah,0fc3b3be83423aed0h,69deff51b4ff4f8ch,75bbd1648aa85085h,0b4ffb5f6f48bdcf4h,72b4f9e9d497959ah,9b87fcf4a2f9f9deh,0c4b7aca8adadad9eh,97bd2eaeaeac4c4h,0cef80aaaf5009ddbh,0ff00d4ff50e1fd60h,7477ce6f3bc2aaffh,45d08166cf7256ceh,0eb3d5ada858cd847h,0c7bfeeafcbebc5ach,65d8474cd36d53c9h,0bed3ed4fh,68 dup(0h)
-	
+	rendering_palette dq 2c2b47394f3f2b38h,35212053333247h,8f8a0b655e0b554eh,195fb9e1309baf0eh,0e8572cbb4c217e46h,22195f8787f07c57h,7de82c4bbb21267eh,8e394e7287bdf057h,65d4f641a7cf3f6bh,89503d6e4f91faf8h,0c66eedba4ac69a44h,748944556e3da6fch,0fca690ed6e66c64ah,0fc3b3be83423aed0h,69deff51b4ff4f8ch,75bbd1648aa85085h,0b4ffb5f6f48bdcf4h,72b4f9e9d497959ah,9b87fcf4a2f9f9deh,0c4b7aca8adadad9eh,97bd2eaeaeac4c4h,0cef80aaaf5009ddbh,0ff00d4ff50e1fd60h,7477ce6f3bc2aaffh,45d08166cf7256ceh,0eb3d5ada858cd847h,0c7bfeeafcbebc5ach,65d8474cd36d53c9h,0ae9f9ebed3ed4fh,68 dup(0h)
+
     sprite_2 dw 2 dup(20h),1h,9ffh,14 dup(909h),0ff09h,15 dup(909h),708h,909h,809h,13 dup(808h),707h,909h,14 dup(808h),707h,909h,5 dup(808h),3 dup(505h),805h,5 dup(808h),707h,909h,4 dup(808h),505h,605h,3 dup(606h),805h,4 dup(808h),707h,909h,3 dup(808h),508h,605h,5 dup(606h),4 dup(808h),707h,909h,3 dup(808h),505h,2 dup(606h),2 dup(808h),2 dup(606h),806h,3 dup(808h),707h,909h,3 dup(808h),605h,606h,4 dup(808h),606h,806h,3 dup(808h),707h,909h,3 dup(808h),608h,806h,4 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,8 dup(808h),508h,605h,806h,3 dup(808h),707h,909h,8 dup(808h),505h,606h,806h,3 dup(808h),707h,909h,7 dup(808h),508h,605h,606h,4 dup(808h),707h,909h,7 dup(808h),505h,606h,806h,4 dup(808h),707h,909h,6 dup(808h),508h,605h,606h,5 dup(808h),707h,909h
              dw 6 dup(808h),505h,606h,806h,5 dup(808h),707h,909h,5 dup(808h),508h,605h,606h,6 dup(808h),707h,909h,5 dup(808h),505h,606h,806h,6 dup(808h),707h,909h,4 dup(808h),508h,605h,606h,7 dup(808h),707h,909h,4 dup(808h),505h,606h,806h,7 dup(808h),707h,909h,3 dup(808h),508h,605h,606h,8 dup(808h),707h,909h,3 dup(808h),505h,2 dup(606h),4 dup(505h),805h,3 dup(808h),707h,909h,3 dup(808h),605h,7 dup(606h),3 dup(808h),707h,909h,3 dup(808h),608h,7 dup(606h),3 dup(808h),707h,909h,14 dup(808h),707h,909h,13 dup(808h),708h,707h,809h,15 dup(707h),7ffh,14 dup(707h),0ff07h,4 dup(0h)
     sprite_4 dw 2 dup(20h),1h,0effh,14 dup(0e0eh),0ff0eh,15 dup(0e0eh),0c0dh,0e0eh,0d0eh,13 dup(0d0dh),0c0ch,0e0eh,14 dup(0d0dh),0c0ch,0e0eh,7 dup(0d0dh),0a0dh,0a0ah,5 dup(0d0dh),0c0ch,0e0eh,7 dup(0d0dh),0a0ah,0b0bh,0d0bh,4 dup(0d0dh),0c0ch,0e0eh,6 dup(0d0dh),0a0dh,0b0ah,0b0bh,0d0bh,4 dup(0d0dh),0c0ch,0e0eh,6 dup(0d0dh),0a0dh,3 dup(0b0bh),4 dup(0d0dh),0c0ch,0e0eh,6 dup(0d0dh),0a0ah,3 dup(0b0bh),4 dup(0d0dh),0c0ch,0e0eh,5 dup(0d0dh),0a0dh,0b0ah,0b0bh,0b0ah,0b0bh,4 dup(0d0dh),0c0ch,0e0eh,5 dup(0d0dh),0a0ah,0b0bh,0d0bh,0b0ah,0b0bh,4 dup(0d0dh),0c0ch,0e0eh,5 dup(0d0dh),0b0ah,0b0bh,0d0dh,0b0ah,0b0bh,4 dup(0d0dh),0c0ch,0e0eh,4 dup(0d0dh),0a0dh,0b0ah,0b0bh,0d0dh,0b0ah,0b0bh,4 dup(0d0dh),0c0ch,0e0eh,4 dup(0d0dh),0a0ah,0b0bh,0d0bh,0d0dh,0b0ah,0b0bh,4 dup(0d0dh),0c0ch,0e0eh,3 dup(0d0dh),0a0dh,0b0ah,0b0bh,2 dup(0d0dh),0b0ah,0b0bh,4 dup(0d0dh),0c0ch,0e0eh,3 dup(0d0dh),0a0dh,2 dup(0b0bh),2 dup(0d0dh),0b0ah,0b0bh,4 dup(0d0dh)
@@ -120,7 +131,11 @@ DATASEG
 	mask_background_shmulik dq 70f0d0400351850h,7450d0407390d04h,0a3f0a040a210a04h,0a2d08040b1b0904h,0a3409030c270804h,110403070b160903h,0a03030407050306h,0d0602060c4a0602h,122f02050a250205h,0f09020405400402h,0a130203124b0204h,0a1c01050a4b0203h,60f01030d490401h,645010306390103h,0c070103080b0301h,63f020110030301h,804020106420201h,0b1f01020a160102h,0d0401020c4c0102h,110b0102104c0201h,903010113340102h,91f010109140101h,0b4e010109260101h,0d4c01010c150101h,113101010e0c0101h,114d010111330101h,122e0101120b0101h,2 dup(0h)
 	mask_background_smiley dq 10080208000e1818h,70f040207080402h,0e1103020d050302h,0e0703010d130202h,0f0f01020c040102h,0f0801010d040101h,100601010f130101h,10100101h,2 dup(0h)
 
-	
+	mask_spawnanimation_tiny dq 0c0d080600032020h,0d1306010d0c0601h,2 dup(0h)
+	mask_spawnanimation_medium dd 32020h,7081210h,8071001h,8181001h,3 dup(0h)
+	mask_spawnanimation_full dd 32020h,1201eh,1001e01h,11f1e01h,3 dup(0h)
+	mask_spawnanimation_half dq 1041e000c2020h,41c18041c01041eh,400010505001704h,11f030101000301h,1c1f03011c000301h,1b040101041b0101h,1b1b0101h,2 dup(0h)
+	mask_spawnanimation_outline dq 1011e00082020h,11f1e0101001e01h,10101011f01011eh,1e010101011e0101h,1e1e0101h,2 dup(0h)
 
 
 	;   ____                        _                _      
@@ -175,13 +190,10 @@ proc Delay
 	ret 2
 endp Delay
 
-proc NumberClamp ;takes a number and a max number and caps it off a minimum and maximum.
-	; parameters:
-	; - VALUE: input number
-	; - VALUE: minimum number
-    ; - VALUE: maximum number
-	; returns:
-	; - VALUE: capped number
+proc NumberClamp
+	; Info: Takes a number and clamps it to a minimum & maximum.
+	; Parameters: Input Number, Minimum Number, Maximum Number
+	; Returns: Clamped Number
 	push bp
 	mov bp, sp
 	push ax
@@ -206,12 +218,10 @@ proc NumberClamp ;takes a number and a max number and caps it off a minimum and 
 	ret 4
 endp NumberClamp
 
-proc NumberMin ;returns the lower value between 2 values
-	; parameters:
-	; - VALUE: Value1
-	; - VALUE: Value2
-	; returns:
-	; - VALUE: Minimum
+proc NumberMin
+	; Info: Returns the lower value between 2 values.
+	; Parameters: Value1, Value2
+	; Returns: Lower Value
 	push bp
 	mov bp, sp
 	push ax
@@ -227,12 +237,10 @@ proc NumberMin ;returns the lower value between 2 values
 	ret 2
 endp NumberMin
 
-proc NumberMax ;returns the larger value between 2 values
-	; parameters:
-	; - VALUE: Value1
-	; - VALUE: Value2
-	; returns:
-	; - VALUE: Maximum
+proc NumberMax
+	; Info: Returns the higher value between 2 values.
+	; Parameters: Value1, Value2
+	; Returns: higher Value
 	push bp
 	mov bp, sp
 	push ax
@@ -248,13 +256,10 @@ proc NumberMax ;returns the larger value between 2 values
 	ret 2
 endp NumberMax
 
-proc NumberMod ;takes a number and a divisor and returns the modulo.
-    ; formula: ((n - min) % max) + min
-	; parameters:
-	; - VALUE: input number
-	; - VALUE: divisor
-	; returns:
-	; - VALUE: modulo'd number
+proc NumberMod 
+	; Info: Returns the modulo of a number.
+	; Parameters: Input Number, Divisor
+	; Returns: Modulo
 	push bp
 	mov bp, sp
 	push ax dx
@@ -272,13 +277,11 @@ proc NumberMod ;takes a number and a divisor and returns the modulo.
 	ret 2
 endp NumberMod
 
-proc NumberRandom ;takes a min & max, returns a random number
-    ; formula: ((clock * internal_primes[internal_primeCounter])%(max-min))+min
-	; parameters:
-	; - VALUE: min
-	; - VALUE: max
-	; returns:
-	; - VALUE: random number
+proc NumberRandom
+	; Info: Returns a random number between a minimum and a maximum, Not including max.
+    ; Formula: ((clock * internal_primes[internal_primeCounter])%(max-min))+min
+	; Parameters: Minimum, Maximum
+	; Returns: Random Number
 	push bp
 	mov bp, sp
 	push ax bx cx dx es
@@ -384,12 +387,10 @@ endp NumberCubicCurveCache
 
 
 
-proc ListCreate ;Creates a list to the allocation
-	; Parameters:
-	; - Element Length
-	; - Element Allocation Length
-	; Returns:
-	; - List ID
+proc ListCreate
+	; Info: Creates a list to the allocation
+	; Parameters: Element Length (Bytes), List Length (Elements)
+	; Returns: List ID
 	push bp
 	mov bp, sp
 	push ax bx cx dx di si
@@ -426,11 +427,10 @@ proc ListCreate ;Creates a list to the allocation
 	ret 2
 endp ListCreate
 
-proc ListCount ;Returns the count of the list.
-	; Parameters:
-	; - List ID
-	; Returns:
-	; - Count
+proc ListCount
+	; Info: Returns the count of a list.
+	; Parameters: List ID
+	; Returns: List Count
 	push bp
 	mov bp, sp
 	push ax bx
@@ -451,11 +451,9 @@ proc ListCount ;Returns the count of the list.
 	ret
 endp ListCount
 
-proc ListSet ;Sets an element in a list with an index and a reference.
-	; Parameters:
-	; - List ID
-	; - Element Reference
-	; - Index
+proc ListSet
+	; Info: Sets an element in a list with an index and a reference.
+	; Parameters: List ID, Element Reference, Index
 	push bp
 	mov bp, sp
 	push ax bx cx dx di si
@@ -492,9 +490,9 @@ proc ListSet ;Sets an element in a list with an index and a reference.
 	ret 6
 endp ListSet
 
-proc ListClear ;Clears a list
-	; Parameters:
-	; - List ID
+proc ListClear
+	; Info: Clears a list.
+	; Parameters: List ID
 	push bp
 	mov bp, sp
 	push ax
@@ -508,7 +506,8 @@ proc ListClear ;Clears a list
 	ret 2
 endp ListClear
 
-proc ListSetAll ;Sets all the list values to a given byte.
+proc ListSetAll
+	; Info: Sets all the list values to a given byte.
 	; Parameters: List ID, Byte to set (lower half)
 	push bp
 	mov bp, sp
@@ -545,10 +544,9 @@ proc ListSetAll ;Sets all the list values to a given byte.
 	ret 4
 endp ListSetAll
 
-proc ListAdd ;Adds something to the list, wrapped around ListSet
-	; Parameters:
-	; - List ID
-	; - Element Reference
+proc ListAdd
+	; Info: Adds something to the list, wrapped around ListSet
+	; Parameters: List ID, Element Reference
 	push bp
 	mov bp, sp
 	push bx cx
@@ -574,11 +572,10 @@ proc ListAdd ;Adds something to the list, wrapped around ListSet
 	ret 4
 endp ListAdd
 
-proc ListGetAdd ;Gets the offset of the first null element in a list
-	; Parameters:
-	; - List ID
-	; Returns:
-	; - Element Offset
+proc ListGetAdd
+	; Info: Gets the offset of the first null element in a list, and increases the list's count.
+	; Parameters: List ID
+	; Returns: Element Offset
 	push bp
 	mov bp, sp
 	push bx cx
@@ -610,11 +607,9 @@ proc ListGetAdd ;Gets the offset of the first null element in a list
 	ret
 endp ListGetAdd
 
-proc ListRetrieve ;Returns an element from a list via an index
-	; Parameters:
-	; - List ID
-	; - Element Reference
-	; - Index
+proc ListRetrieve
+	; Info: Returns an element from a list via an index and memory reference.
+	; Parameters: List ID, Element Reference, Index
 	push bp
 	mov bp, sp
 	push ax bx cx dx di si
@@ -651,12 +646,10 @@ proc ListRetrieve ;Returns an element from a list via an index
 	ret 6
 endp ListRetrieve
 
-proc ListGet ;Returns the offset of a list's element via an index
-	; Parameters:
-	; - List ID
-	; - Index
-	; Returns:
-	; - Element Offset
+proc ListGet
+	; Info: Returns the offset of a list's element via an index.
+	; Parameters: List ID, Index
+	; Returns: Element Offset
 	push bp
 	mov bp, sp
 	push ax bx dx di
@@ -686,8 +679,8 @@ proc ListGet ;Returns the offset of a list's element via an index
 	ret 2
 endp ListGet
 
-proc ListForeach ;Runs through every element in a list, with a callback functin
-	; Info:
+proc ListForeach
+	; Info: Runs through every element in a list, with a callback function
 	; The callback offset should be a label, make sure to ret at the end of it and push used registers.
 	; DI register is set to the offset of the list element.
 	; CX register is set to the loop iterations left.
@@ -730,10 +723,9 @@ proc ListForeach ;Runs through every element in a list, with a callback functin
 	ret 6
 endp ListForeach
 
-proc ListRemove ;Removes an element from a list via index, and collapses it.
-	; Parameters:
-	; - List ID
-	; - Index
+proc ListRemove
+	; Info: Removes an element from a list via index, and collapses it.
+	; Parameters: List ID, Index
 	push bp
 	mov bp, sp
 	push ax bx cx dx di si
@@ -826,7 +818,8 @@ endp ListSetCount
 
 
 
-proc BufferClear ;clears the screen buffer
+proc BufferClear
+	; Info: Clears the screen buffer.
 	push ax bx cx di es
 	mov ax, ScreenBuffer
 	mov es, ax ;ES is now at the screen buffer
@@ -863,6 +856,7 @@ proc RenderScreen
 	push ax bx cx dx si
 	call BufferClear
 	
+	call RenderShake
 	call RenderParticles
 	call RenderBoard
 	call RenderBlocks
@@ -950,6 +944,50 @@ proc RenderBlocks
 	ret
 endp RenderBlocks
 
+proc RenderShake
+	; Info: Handles all the camera shake rendering/frame code.
+	push ax bx cx dx di si
+	
+	cmp [word ptr rendering_animationFrame], constant_mergeScreenshakeFrame
+	jne RenderShake_DontMergeShake
+	cmp [byte ptr rendering_mergedScore], 2
+	jb RenderShake_DontMergeShake
+		; Merge Shake
+		push 5 1 2
+		call AnimationShake
+	RenderShake_DontMergeShake:
+
+
+	; Shake Offset Code
+	cmp [word ptr rendering_shake_framesLeft], nullword
+	je RenderShake_Skip ; If there are no frames left, no need to do this
+		xor bx, bx
+		mov cx, [word ptr rendering_shake_strength] ; CX = Strength
+		mov ax, cx
+		shl ax, 1
+		inc ax ; AX = Strength*2+1
+
+		push bx ; minimum of 0
+		push ax ; maximum of Strength*2+1 (because NumberRandom max is 1 lower)
+		call NumberRandom
+		pop [word ptr rendering_shake_xOffset]
+		sub [word ptr rendering_shake_xOffset], cx
+
+		push bx ; minimum of 0
+		push ax ; maximum of Strength*2+1 (because NumberRandom max is 1 lower)
+		call NumberRandom
+		pop [word ptr rendering_shake_yOffset]
+		sub [word ptr rendering_shake_yOffset], cx
+		dec [word ptr rendering_shake_framesLeft]
+		jnz RenderShake_Skip
+		; Reached 0 here
+			mov [word ptr rendering_shake_framesLeft], nullword
+			mov [word ptr rendering_shake_xOffset], 0
+			mov [word ptr rendering_shake_yOffset], 0
+	RenderShake_Skip:
+	pop si di dx cx bx ax
+	ret
+endp RenderShake
 
 proc RenderAnimation
 	; Info: Renders the block animation list to the buffer.
@@ -957,6 +995,7 @@ proc RenderAnimation
 	cmp [word ptr rendering_animationFrame], nullword
 	je RenderAnimation_Finish
 	cmp [word ptr rendering_animationFrame], constant_animationTotalFrames
+
 	jae RenderAnimation_ClearList ;If the frames match the total frames, animation is over and does not need to be displayed.
 	
 	push [word ptr listID_animation]
@@ -970,6 +1009,10 @@ proc RenderAnimation
 		jne RenderAnimation_SkipType0
 			jmp RenderAnimation_Type0
 		RenderAnimation_SkipType0:
+		cmp [word ptr di], 1 ;Animation Type 0
+		jne RenderAnimation_SkipType1
+			jmp RenderAnimation_Type1
+		RenderAnimation_SkipType1:
 		RenderAnimation_FinishType:
 		ret
 	RenderAnimation_animationForeachExit:
@@ -1025,16 +1068,101 @@ proc RenderAnimation_Type0
 	cmp [word ptr di+12], nullword ;Merge Data
 	je RenderAnimation_Type0_NotMerge
 		; This is a merge, we need to draw an extra on top of this
+		push cx ; i need cx for this
+
+		mov cx, [word ptr di+10] ; Intended Y
+		shl cx, 5
+		add cx, 36
+		cmp [word ptr di+12], 0
+		jne RenderAnimation_Type0_MergeNotDir0 ; Up
+			add cx, 32
+			jmp RenderAnimation_Type0_MergeNotDir2
+		RenderAnimation_Type0_MergeNotDir0:
+		cmp [word ptr di+12], 1
+		je RenderAnimation_Type0_MergeNotDir2 ; Down
+		mov cx, [word ptr di+8] ; Intended Y
+		shl cx, 5
+		add cx, 96
+		cmp [word ptr di+12], 2
+		jne RenderAnimation_Type0_MergeNotDir2 ; Left
+			add cx, 32
+		RenderAnimation_Type0_MergeNotDir2:
+
 		mov si, [word ptr di+2] ; Block Type
 		inc si
 		shl si, 1 ;Multiply the type by 2, because each offset is a word.
 		push [word ptr si+internal_blockSpriteOffsets]
 		push bx
 		push dx
-		call BufferSprite
+		push cx ; Boundary Coordinate
+		push [word ptr di+12] ; Direction
+		call BufferSpriteBoundary
+
+		pop cx ;pop it back out
 	RenderAnimation_Type0_NotMerge:
 	jmp RenderAnimation_FinishType
 endp RenderAnimation_Type0
+
+proc RenderAnimation_Type1
+	
+	push ax
+
+	mov bx, [word ptr di+4]
+	shl bx, 5
+	add bx, 96 ;BX = X
+
+	mov dx, [word ptr di+6]
+	shl dx, 5
+	add dx, 36 ;DX = Y
+
+	cmp [word ptr rendering_animationFrame], 20
+	jae RenderAnimation_Type1_ShowAnimation ;Below 20 frames, don't even show animation
+		jmp RenderAnimation_Type1_DontBufferMask
+	RenderAnimation_Type1_ShowAnimation:
+
+	mov ax, offset mask_spawnanimation_tiny ;Stays 4 Frames
+	
+	cmp [word ptr rendering_animationFrame], (20+8)
+	jb RenderAnimation_Type1_Finished
+	mov ax, offset mask_spawnanimation_medium ;Stays 4 Frames
+
+	cmp [word ptr rendering_animationFrame], (20+8+8)
+	jb RenderAnimation_Type1_Finished
+	mov ax, offset mask_spawnanimation_full ;Stays 4 Frames
+	
+	cmp [word ptr rendering_animationFrame], (20+8+8+8)
+	jb RenderAnimation_Type1_Finished
+	mov ax, offset mask_spawnanimation_half ;Stays 5 Frames
+	call RenderAnimation_Type1_BufferMain ; Also sprite needs to buffer from this point on
+	
+	cmp [word ptr rendering_animationFrame], (20+8+8+8+10)
+	jb RenderAnimation_Type1_Finished
+	mov ax, offset mask_spawnanimation_outline ;Stays 8 Frames
+	
+	cmp [word ptr rendering_animationFrame], (20+8+8+8+10+8)
+	ja RenderAnimation_Type1_DontBufferMask
+	
+	RenderAnimation_Type1_Finished:
+	push ax
+	push 76
+	push bx
+	push dx
+	call BufferMask
+	RenderAnimation_Type1_DontBufferMask:
+
+	pop ax
+	jmp RenderAnimation_FinishType
+
+	
+	RenderAnimation_Type1_BufferMain:
+		mov si, [word ptr di+2] ; Block Type
+		shl si, 1 ;Multiply the type by 2, because each offset is a word.
+		push [word ptr si+internal_blockSpriteOffsets]
+		push bx
+		push dx
+		call BufferSprite
+		ret
+endp RenderAnimation_Type1
 
 
 
@@ -1105,6 +1233,11 @@ proc BufferRect
     rectHeight equ [word ptr bp + 8]
     topLeftX equ [word ptr bp + 6]
     topLeftY equ [word ptr bp + 4]
+
+	mov ax, [word ptr rendering_shake_xOffset]
+	add topLeftX, ax
+	mov ax, [word ptr rendering_shake_yOffset]
+	add topLeftY, ax
 
 	mov ax, ScreenBuffer 
 	mov es, ax ;Switch ES to the screen buffer.
@@ -1286,6 +1419,11 @@ proc BufferSprite
 	spriteWidth equ [word ptr bp - 2]
 	spriteHeight equ [word ptr bp - 4]
 
+	mov ax, [word ptr rendering_shake_xOffset]
+	add topLeftX, ax
+	mov ax, [word ptr rendering_shake_yOffset]
+	add topLeftY, ax
+
 	mov ax, topLeftY
 	mov dx, 320
 	imul dx
@@ -1394,6 +1532,126 @@ proc BufferSprite
 	ret 6
 endp BufferSprite
 
+
+proc BufferSpriteBoundary
+	; Info: Renders a sprite onto the buffer.
+	; Parameters: Sprite Offset, Top Left X, Top Left Y, Boundary Coordinate, Direction
+	push bp
+	mov bp, sp
+	sub sp, 4 ;Allocate some space for temporary variables
+	push ax bx cx dx di es si
+
+	spriteOffset equ [word ptr bp + 12]
+	topLeftX equ [word ptr bp + 10]
+	topLeftY equ [word ptr bp + 8]
+	boundaryCoordinate equ [word ptr bp + 6]
+	direction equ [word ptr bp + 4]
+	spriteWidth equ [word ptr bp - 2]
+	spriteHeight equ [word ptr bp - 4]
+
+	mov ax, [word ptr rendering_shake_xOffset]
+	add topLeftX, ax
+	mov ax, [word ptr rendering_shake_yOffset]
+	add topLeftY, ax
+
+	mov ax, topLeftY
+	mov dx, 320
+	imul dx
+	add ax, topLeftX
+	mov si, ax ;SI = (topLeftY * 320) + topLeftX
+
+	mov ax, ScreenBuffer
+	mov es, ax ; ES is now at the screen buffer
+
+	mov di, spriteOffset
+
+	mov cx, [word ptr di]
+	mov spriteWidth, cx
+	mov cx, [word ptr di+2]
+	mov spriteHeight, cx
+	mov cx, [word ptr di+4] ; CX = Sprite Type (Default, Transparency)
+	add di, 6
+	xor cx, cx
+	xor bx, bx
+	BufferSpriteBoundary_SetLoop:
+		jmp BufferSpriteBoundary_SkipDrawTopOver
+			BufferSpriteBoundary_SkipDrawTop:
+				jmp BufferSpriteBoundary_SkipDraw
+		BufferSpriteBoundary_SkipDrawTopOver:
+		
+		mov al, [byte ptr di]
+		cmp al, nullbyte
+		jz BufferSpriteBoundary_SkipDrawTop
+		
+		mov dx, cx ;Whole DX part is for detecting if this sprite's width is overflowing
+		add dx, topLeftX
+		cmp dx, 320
+		jge BufferSpriteBoundary_SkipDrawTop
+		cmp dx, 0
+		jl BufferSpriteBoundary_SkipDrawTop
+
+		cmp direction, 2 ;Direction Left
+		jne BufferSpriteBoundary_SkipDirLeft
+			cmp dx, boundaryCoordinate
+			jge BufferSpriteBoundary_SkipDrawTop
+		BufferSpriteBoundary_SkipDirLeft:
+
+		cmp direction, 3 ;Direction Right
+		jne BufferSpriteBoundary_SkipDirRight
+			cmp dx, boundaryCoordinate
+			jl BufferSpriteBoundary_SkipDrawTop
+		BufferSpriteBoundary_SkipDirRight:
+
+		mov dx, bx ;Whole DX part is for detecting if this sprite's height is overflowing
+		add dx, topLeftY
+		cmp dx, 200
+		jge BufferSpriteBoundary_SkipDraw
+		cmp dx, 0
+		jl BufferSpriteBoundary_SkipDraw
+
+		cmp direction, 0 ;Direction Up
+		jne BufferSpriteBoundary_SkipDirUp
+			cmp dx, boundaryCoordinate
+			jge BufferSpriteBoundary_SkipDraw
+		BufferSpriteBoundary_SkipDirUp:
+		
+		cmp direction, 1 ;Direction Down
+		jne BufferSpriteBoundary_SkipDirDown
+			cmp dx, boundaryCoordinate
+			jl BufferSpriteBoundary_SkipDraw
+		BufferSpriteBoundary_SkipDirDown:
+		
+
+			mov [byte ptr es:si], al
+			;dec [byte ptr es:si]
+		BufferSpriteBoundary_SkipDraw:
+
+		inc si ;increase the screen offset
+		inc di ;increase the sprite offset pointer
+		inc cx ;just some row detection, cx being width and dx being height
+
+
+		cmp cx, spriteWidth
+		jl BufferSpriteBoundary_AddWidth
+			sub si, cx ;Take away the X si travelled, which is cx or spritewidth doesn't matter they're equal here
+			add si, 320 ;Add a row to si
+			xor cx, cx
+			inc bx ; Y
+
+			cmp bx, spriteHeight
+			jl BufferSpriteBoundary_SetLoop
+			jmp BufferSpriteBoundary_Exit
+		BufferSpriteBoundary_AddWidth:
+		jmp BufferSpriteBoundary_SetLoop
+	BufferSpriteBoundary_Exit:
+
+	pop si es di dx cx bx ax
+	add sp, 4
+	pop bp
+	ret 10
+endp BufferSpriteBoundary
+
+
 proc BufferSpriteCenter
 	; Info: Renders a sprite to the buffer, anchored from its middle point. RelativeToScreenCenter will make the coordinates 0,0 the center of the screen.
 	; Parameters: Sprite Offset, X Position, Y Position, ?RelativeToScreenCenter
@@ -1493,14 +1751,29 @@ proc GameSpawnBlock
 	call ListGet
 	pop si
 	
+	mov di, [word ptr si] ; DI = Index
+	
 
 	push [word ptr listID_board]
-	push [word ptr si]
+	push di
 	call ListGet
 	pop bx
 
 	mov ax, tileType
 	mov [word ptr bx], ax
+
+	mov si, di
+	and si, 11b ; SI = X
+	shr di, 2 ; DI = Y
+	
+	push 1 ; Animation Type (1 is Spawned Block)
+	push tileType ; Block Type
+	push si ; Start X
+	push di ; Start Y
+	push si ; End X
+	push di ; End Y
+	push nullword ; Merge Data
+	call AnimationAdd
 
 	GameSpawnBlock_CantSpawn:
 	pop si di dx cx bx ax
@@ -1538,6 +1811,9 @@ proc GameMove
     push ax bx cx dx di si
     direction equ [word ptr bp + 4]
 
+	mov [byte ptr internal_shouldSpawnBlock], boolFalse
+	mov [byte ptr rendering_mergedScore], 0
+
 	push [word ptr listID_boardMerged]
 	push boolFalse
 	call ListSetAll
@@ -1555,8 +1831,11 @@ proc GameMove
 		inc ax
 		loop GameMove_LinesLoop
 	
-	push 0
-	call GameSpawnBlock
+	cmp [byte ptr internal_shouldSpawnBlock], boolFalse
+	je GameMove_DontSpawnBlock
+		push 0
+		call GameSpawnBlock
+	GameMove_DontSpawnBlock:
 	call GameCheckLose
 
     pop si di dx cx bx ax
@@ -1648,6 +1927,11 @@ proc GameCollapseLine_SettleCases
 		push nullword
 		call AnimationAddDirection
 
+		cmp bx, originalY
+		je GameCollapseLine_BlockSettle_NotMoved
+			mov [byte ptr internal_shouldSpawnBlock], boolTrue
+		GameCollapseLine_BlockSettle_NotMoved:
+
 		mov si, originalBlockOffset
 		mov [word ptr si], nullword ;Delete the old block
 		push direction
@@ -1667,6 +1951,13 @@ proc GameCollapseLine_SettleCases
 		push bx ; End Y
 		push direction
 		call AnimationAddDirection
+
+		mov [byte ptr internal_shouldSpawnBlock], boolTrue
+		inc [byte ptr rendering_mergedScore]
+		cmp dx, 3 ; Combining INTO a 32+ should always shake
+		jne GameCollapseLine_BlockMerge_DontShake
+			add [byte ptr rendering_mergedScore], 100 ;merged += (type+1)
+		GameCollapseLine_BlockMerge_DontShake:
 
 		mov si, originalBlockOffset
 		mov [word ptr si], nullword ; Delete the old block
@@ -1947,6 +2238,7 @@ proc InitializeBoard
 	call ListClear
 
 	; Start with 2 blocks.
+	mov [word ptr rendering_animationFrame], 0
 	push ax
 	call GameSpawnBlock
 	push ax
@@ -2001,7 +2293,7 @@ proc InitializeAnimation
 	jnz InitializeAnimation_DontCreateList
 		;Creating the list here
 		push 14 ; AnimType, BlockType, XStart, YStart, XEnd, YEnd, MergeData
-		push 16 ;Board is 16 tiles, so max 16 animations. but 20 for safety.
+		push 24 ;Board is 16 tiles, so max 16 animations. but 20 for safety.
 		call ListCreate
 		pop [word ptr listID_animation] ; List ID
 
@@ -2060,6 +2352,11 @@ proc InitializeCurve
 				push bx ax si ; NStart, NEnd, Frame
 				call NumberCubicCurve
 				pop dx
+				cmp bx, ax
+				jb InitializeCurve_NGoesUp
+					; N Goes Down, Need to add 1
+					
+				InitializeCurve_NGoesUp:
 				mov [byte ptr di], dl
 				inc di
 				inc si
@@ -2073,11 +2370,6 @@ proc InitializeCurve
 	pop si di dx cx bx ax
 	ret
 endp InitializeCurve
-
-
-
-
-
 
 
 
@@ -2166,6 +2458,37 @@ proc AnimationAddDirection
 	pop bp
 	ret 16
 endp AnimationAddDirection
+
+proc AnimationShake
+	; Info: Shakes the camera for a specific duration, with other parameters.
+	; Parameters: Frame Duration, Strength, Priority
+    push bp
+    mov bp, sp
+    push ax
+    frameDuration equ [word ptr bp + 8]
+    strength equ [word ptr bp + 6]
+	priority equ [word ptr bp + 4]
+
+	cmp [word ptr rendering_shake_framesLeft], nullword
+	je AnimationShake_DontCheckPriority
+		; Compare priorities, if lower than the current one, don't change the camerashake variables.
+		mov ax, priority
+		cmp [word ptr rendering_shake_priority], ax
+		ja AnimationShake_DontSet ; if oldpriority>newpriority, don't set
+	AnimationShake_DontCheckPriority:
+	
+	mov ax, frameDuration
+	mov [word ptr rendering_shake_framesLeft], ax
+	mov ax, priority
+	mov [word ptr rendering_shake_priority], ax
+	mov ax, strength
+	mov [word ptr rendering_shake_strength], ax
+    
+	AnimationShake_DontSet:
+    pop ax
+    pop bp
+	ret 6
+endp AnimationShake
 
 
 proc MainProcessKey
@@ -2286,9 +2609,9 @@ start:
 	call InitializeKeyActions
 	call InitializePalette
 	call InitializeParticles
-	call InitializeBoard
 	call InitializeAnimation
 	call InitializeCurve
+	call InitializeBoard
 
 	xor ax, ax
 	xor bx, bx
