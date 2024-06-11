@@ -16,11 +16,14 @@ DATASEG
 	; | |   / _ \| '_ \/ __| __/ _` | '_ \| __/ __|
 	; | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
 	;  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
-	constant_framesToShowGameOver equ 60
+	constant_framesToShowGameOver equ 1000
+	constant_framesToShowStuckBlocks equ 300
+	constant_framesPerGameOverFrame equ 1
 	constant_animationTotalFrames equ 64
 	constant_animationStopAtFrame equ 64
 	constant_mergeScreenshakeFrame equ 1
 	constant_characterSpacing equ 3
+	constant_amountOfButtons equ 4
 
 	nullbyte equ 0ffh
 	nullword equ 0ffffh
@@ -68,14 +71,30 @@ DATASEG
 	internal_fontOffsets dw 48 dup (mask_background_wtf)
 						 dw offset mask_number_0, offset mask_number_1, offset mask_number_2, offset mask_number_3, offset mask_number_4, offset mask_number_5, offset mask_number_6, offset mask_number_7, offset mask_number_8, offset mask_number_9
 						 dw 70 dup (mask_background_wtf)
+	internal_buttonIconOffsets dw offset mask_icon_restart, offset mask_icon_mainmenu, offset mask_icon_shake, offset mask_icon_animation
 
 
 	internal_keyActions dw 256 dup(nullword)
+	internal_mouseActions dw (5*20) dup(nullword)
+	internal_mouseActionsPointer dw 0
+	internal_activeMouseActions dw 20 dup(boolFalse)
+	internal_buttonToggles dw constant_amountOfButtons dup(boolFalse)
 
 	internal_curveCache db (12*64) dup(nullbyte)
 
 	internal_displayTest db '1932', 10 dup (0), 1 ; 1 stops the conversion immediately
+	internal_gameOverFrameAddCounter dw 0
 	;internal_totalRectMax dw 1
+
+	; Mouse stuff
+	internal_mouseLeftClick db boolFalse
+	internal_mouseLeftClickFirst db boolFalse
+	internal_mouseRightClick db boolFalse
+	internal_mouseRightClickFirst db boolFalse
+	internal_mouseX dw nullword
+	internal_mouseY dw nullword
+	internal_movedMouse db boolFalse
+
 
 	;  ____                _           _             
 	; |  _ \ ___ _ __   __| | ___ _ __(_)_ __   __ _ 
@@ -87,6 +106,8 @@ DATASEG
 	rendering_animationFrame dw nullword
 	rendering_mergedScore db boolFalse
 
+	rendering_gameOverFrame dw 0
+
 	rendering_shake_framesLeft dw nullword
 	rendering_shake_priority dw 0
 	rendering_shake_strength dw 0
@@ -97,7 +118,7 @@ DATASEG
 
 
 	; Palettes
-	rendering_palette dq 2c2b47394f3f2b38h,3d262553333247h,8f8a0b655e0b554eh,195fb9e1309baf0eh,0e8572cbb4c217e46h,22195f8787f07c57h,7de82c4bbb21267eh,8e394e7287bdf057h,65d4f641a7cf3f6bh,89503d6e4f91faf8h,0c66eedba4ac69a44h,748944556e3da6fch,0fca690ed6e66c64ah,31bf9b2fab712fd0h,0eeff71e2e230c0bbh,75bbd1648aa85085h,63ffb5f6f48bdcf4h,526bcc374a952431h,0adad7f7f7f738ceeh,0eac4c4c4b7aca8adh,9ddb097bd2eaeah,0e1fd60cef80aaaf5h,0c2aaffff00d4ff50h,7256ce7477ce6f3bh,8cd84745d08166cfh,0ebc5aceb3d5ada85h,6d53c9c7bfeeafcbh,4776553a76bed3edh,0ff5e5cc1647dc157h,3d9eff49ddffa0cfh,0a6eeffh,66 dup(0h)
+	rendering_palette dq 2c2b47394f3f2b38h,3d262553333247h,8f8a0b655e0b554eh,195fb9e1309baf0eh,0e8572cbb4c217e46h,22195f8787f07c57h,7de82c4bbb21267eh,8e394e7287bdf057h,65d4f641a7cf3f6bh,89503d6e4f91faf8h,0c66eedba4ac69a44h,748944556e3da6fch,0fca690ed6e66c64ah,31bf9b2fab712fd0h,0eeff71e2e230c0bbh,75bbd1648aa85085h,63ffb5f6f48bdcf4h,526bcc374a952431h,0adad7f7f7f738ceeh,0eac4c4c4b7aca8adh,9ddb097bd2eaeah,0e1fd60cef80aaaf5h,76aaffff00d4ff50h,647dc1574776553ah,0ddffa0cfff5e5cc1h,0ffa6eeff3d9eff49h,0a95748351d1cffffh,269b68413fbf8378h,2b6e31006a42d251h,90745f8b6a547e4ch,9f9289h,66 dup(0h)
 
 	sprite_2 dw 2 dup(20h),0h,902h,14 dup(909h),209h,15 dup(909h),708h,909h,809h,13 dup(808h),707h,909h,14 dup(808h),707h,909h,5 dup(808h),3 dup(505h),805h,5 dup(808h),707h,909h,4 dup(808h),505h,605h,3 dup(606h),805h,4 dup(808h),707h,909h,3 dup(808h),508h,605h,5 dup(606h),4 dup(808h),707h,909h,3 dup(808h),505h,2 dup(606h),2 dup(808h),2 dup(606h),806h,3 dup(808h),707h,909h,3 dup(808h),605h,606h,4 dup(808h),606h,806h,3 dup(808h),707h,909h,3 dup(808h),608h,806h,4 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,8 dup(808h),508h,605h,806h,3 dup(808h),707h,909h,8 dup(808h),505h,606h,806h,3 dup(808h),707h,909h,7 dup(808h),508h,605h,606h,4 dup(808h),707h,909h,7 dup(808h),505h,606h,806h,4 dup(808h),707h,909h,6 dup(808h),508h,605h,606h,5 dup(808h),707h,909h
              dw 6 dup(808h),505h,606h,806h,5 dup(808h),707h,909h,5 dup(808h),508h,605h,606h,6 dup(808h),707h,909h,5 dup(808h),505h,606h,806h,6 dup(808h),707h,909h,4 dup(808h),508h,605h,606h,7 dup(808h),707h,909h,4 dup(808h),505h,606h,806h,7 dup(808h),707h,909h,3 dup(808h),508h,605h,606h,8 dup(808h),707h,909h,3 dup(808h),505h,2 dup(606h),4 dup(505h),805h,3 dup(808h),707h,909h,3 dup(808h),605h,7 dup(606h),3 dup(808h),707h,909h,3 dup(808h),608h,7 dup(606h),3 dup(808h),707h,909h,14 dup(808h),707h,909h,13 dup(808h),708h,707h,809h,15 dup(707h),702h,14 dup(707h),207h,4 dup(0h)
@@ -127,6 +148,16 @@ DATASEG
     sprite_2048 dq 3c02000000200020h,3 dup(3c3c3c3c3c3c3c3ch),3c3c023c3c3c3c3ch,3 dup(3c3c3c3c3c3c3c3ch),3c3c373b3c3c3c3ch,3636363b3b3b3b3ch,3b3b3b3b3b3b3636h,3b3b3b3b36363636h,3c3c37373b3b3b3bh,393936363b3b3b3bh,363b3b3b36393939h,3b3b363939393936h,3c3c37373b3b3b3bh,383839363b3b3b3bh,36363b3838383838h,3b38383838383839h,3c3c37373b3b3b3bh,3a3a383b3b3b3b3bh,39363a3839363a3ah,3a38383a3a3a3838h,3c3c37373b3b3b3bh,3b3a3b3b3b3b3b3bh,39363a3839363b3bh,3839363b3b3a3a38h,3c3c37373b3b3b3bh,3b3b3b3b3b3b3b3bh,39363a3839363b3bh,3839363b3b3b3a38h,3c3c37373b3b3b3ah,3b3b3b3b3b3b3b3bh,39363a383936363bh,3839363b3b3b3a38h,3c3c37373b3b3b3ah,3b3b3b3b3b3b3b3bh,39363a3a38393636h,3839363b3b3b3a38h,3c3c37373b3b3b3ah,363b3b3b3b3b3b3bh,39363b3a3a383936h,3839363b3b3b3a38h,3c3c37373b3b3b3ah,36363b3b3b3b3b3bh,39363b3b3a3a3839h,3839363b3b3b3a38h,3c3c37373b3b3b3ah,393636363b3b3b3bh
                 dq 39363b3b3b3a3a38h,383936363b3b3a38h,3c3c37373b3b3b3ah,383939363b3b3b3bh,393b3b3b36363636h,3838393636363838h,3c3c37373b3b3b3ah,383839363b3b3b3bh,3b3b3b3838383838h,3a38383939393838h,3c3c37373b3b3b3ah,3838393b3b3b3b3bh,3b3b383838383838h,3a3a38383838383bh,3c3c37373b3b3b3bh,3a3a3b3b3b3b3b3bh,3b3a3a3a3636363ah,3b3a363636363636h,3c3c37373b3b3b3bh,3b3b3b3b3b3b3b3bh,363b3b393939363bh,3b39393939393936h,3c3c37373b3b3b3bh,3b3b3b3b3b3b3b3bh,363b3a3838393636h,3838383838383839h,3c3c37373b3b3b3bh,363b3b3b3b3b3b3bh,363b3a3838383936h,3839363a3a3a3839h,3c3c37373b3b3b3ah,36363b3b3b3b3b3bh,363b3a3839363839h,3839363b3b3a3839h,3c3c37373b3b3b3ah,39363b3b3b3b3b3bh,363b3a3839363838h,3839363636363839h,3c3c37373b3b3b3ah,3936363b3b3b3b3bh,3b3b3a3839363a38h,3838393939393839h,3c3c37373b3b3b3ah,383936363b3b3b3bh,363b3a3839363a3ah,3a38383838383836h,3c3c37373b3b3b3ah
                 dq 383839363b3b3b3bh,36363a3839363636h,3838383a3a3a3839h,3c3c37373b3b3b3bh,383839363b3b3b3bh,3936383839393939h,38383b3b3b3a3a38h,3c3c37373b3b3b3ah,3838393b3b3b3b3bh,3936383838383838h,3836363b3b3b3a38h,3c3c37373b3b3b3ah,3a3a3b3b3b3b3b3bh,393a3a3839363a3ah,3839363636363838h,3c3c37373b3b3b3bh,3b3b3b3b3b3b3b3bh,3b3b3a3838363b3bh,3838393939393838h,3c3c37373b3b3b3ah,3b3b3b3b3b3b3b3bh,3b3b3a38383b3b3bh,3a3838383838383bh,3b3c3737373b3b3ah,3 dup(3737373737373737h),3702373737373737h,3 dup(3737373737373737h),23737373737h,2 dup(0h)
+	sprite_stuckBlock db 32,0,32,0,1,0,255,30 dup(73),255,3 dup(73),26 dup(255),73,3,4,2 dup(73),28 dup(255),2 dup(4),73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,73,30 dup(255),4,2 dup(73),28 dup(255),2 dup(4),73,3,4,26 dup(255),3 dup(4),255,30 dup(4),255,8 dup(0)
+
+
+	sprite_cursor dq 0ff450001000a0007h,0ff4545ffffffffffh,0ff454145ffffffffh,0ff45414345ffffffh,0ff4543434145ffffh,0ff454343434345ffh,4545434343434345h,4534344545454343h,3434ffff34343445h,0ffffffffh,2 dup(0h)
+	sprite_button_x dq 0eff0001000f0010h,0ffffffffffffff0eh,0d0eff0b0e0effffh,0ffffffffffff0e0dh,0d0e0b0c0d0d0effh,0ffffffffff0e0d0dh,0eff0b0c0d0d0d0eh,0effffff0e0d0d0dh,0ffffff0b0c0d0d0dh,0d0eff0e0d0d0d0eh,0ffffffff0b0c0d0dh,0d0d0e0d0d0d0effh,0ffffffffff0b0c0dh,0d0d0d0d0d0effffh,0ffffffffffff0b0ch,0c0d0d0d0effffffh,0ffffffffffffff0bh,0d0d0d0d0d0effffh,0ffffffffffff0b0ch,0d0d0c0d0d0d0effh,0ffffffffff0b0c0dh,0d0c0b0c0d0d0d0eh,0effffff0b0c0d0dh,0cffff0b0c0d0d0dh,0d0eff0b0c0d0d0dh,0ffffffff0b0c0d0dh,0d0e0b0c0d0d0d0ch,0ffffffffff0b0c0dh,0cff0b0c0d0d0cffh,0ffffffffffff0b0ch,0ff0b0c0cffffh,2 dup(0h)
+	sprite_madebykoren dq 0ffff00010010008eh,3 dup(0ffffffffffffffffh),0ffffffffffffff4eh,4d4effffffffffffh,9 dup(0ffffffffffffffffh),0ffff4d4effffffffh,2 dup(0ffffffffffffffffh),4e4dffffffffffffh,0ffff4e4dffffffffh,0ffffffffffffffffh,4e4f4effffffffffh,0ffffffffffffffffh,0ff4d504f4effffffh,0ffffffffffffffffh,4effffffffffffffh,0ffff4e4dffffff4dh,4 dup(0ffffffffffffffffh),4e4d4e4d4effffffh,0ffffffffffffffffh,0ffffff4d504f4effh,2 dup(0ffffffffffffffffh),0ff4e4f504dffffffh,0ffffff4e4f504dffh,0ffffffffffffffffh,0ff4c4d504dffffffh,0ffffffffffffffffh,0ffff4c4e4f504dffh,0ffffffffffffffffh,4d504f4effffffffh,0ffffff4e4f504dffh,4 dup(0ffffffffffffffffh),0ff4e4f504f504f4eh,4dffffffffffffffh,0ffffffff4c4e4f50h,2 dup(0ffffffffffffffffh),504d4c4d504f4effh,4e4d4eff4c4d504fh,4e4dffffffff4e4dh,4e4dff4c4e4f4e4dh,4effffffffff4e4dh,4eff4e4d4e4d504fh,0ffff4effffffff4dh
+                       dq 504d4e4f504dffffh,4e4d4eff4c4c4e4fh,4e4d4effffffff4dh,0ff4d4e4d4effff4dh,4e4d4e4d4effffffh,504f4effffffffffh,4eff4c4d504d4e4dh,504f4effff4d4e4dh,4effffff4e4d4e4dh,4effffffff4d4e4dh,4f4effff4e4d4e4dh,4f4e4f4e4d504f50h,4f504f504f4e4c4eh,4f504f504dffff4eh,4f504f504d4c4d50h,4f504dffffffff4eh,4d504f4e4f504f50h,0ffffff4e4f4effffh,4c4e4f504d504f4eh,4d504f504f4eff4ch,4d504f504f4effffh,0ffff4d504f504f4eh,0ff4e4f504f504f4eh,4c4c4d504f4effffh,4f504f4e4c4c4d4ch,4f504f504dff4d50h,4f504f4eff4e4f50h,4f504f4effff4d50h,4e4f504dff4e4f50h,4c4d504d504d4e4fh,4e4f504d4e4d504dh,4e4f4e4d4e4f504dh,4e4f504d4e4f504dh,4e4d504f4effffffh,4e4c4e4f4e4d504fh,504dffff4c4d504fh,4eff4c4c4e4f504fh,4e4d504d4e4d504fh,504f4e4d4e4d504fh,504f4e4d504f4e4dh,0ffff4c4d504d4e4dh,0ffffff4c4c4d504dh,504d4e4d504f4e4ch,2 dup(504f4e4d504f4e4dh),504d4e4d504f4e4dh,4f504d504f4d4c4dh
+                       dq 4dff4c4d4f4d4f50h,4f4d4d504f4d4d4dh,4f4d4d504d4c4c4dh,0ff4c4d504d4d4d4dh,4f4d4c4d4f504dffh,4f504d4d4f504d50h,4f504f4dffff4c4dh,4d504dffff4c4c4dh,4f504d504f4d4c4ch,4d4d4d504d4c4c4dh,4c4d4f504d4d4f4dh,4f4dffff4c4d4f4dh,4dffffffffff4c4dh,4d504f4d4c4c4d50h,4d4d4f4d4c4d4f50h,4d4d4f4d4d4d4d50h,4c4d4f4d4c4d4f50h,4d4f4f4d4d4f4f4dh,4f4f4f4d4d4f4f4dh,4c4d4f4d4d4f4f4fh,4f4f4f4d4d4f4dffh,4dffff4c4d4f4f4fh,4d4f4f4d4c4d4f4fh,4c4c4d4f4d4d4f4dh,4d4f4f4f4f4dffffh,0ff4c4d4f4dffffffh,4c4d4f4f4d4f4f4dh,4f4f4f4f4f4f4dffh,4f4d4c4d4f4f4d4dh,4c4d4f4dffff4c4dh,4d4f4dffffffffffh,4f4f4d4f4f4dff4ch,4f4f4d4d4f4d4c4dh,4f4f4d4d4f4f4f4fh,4f4d4c4d4f4d4c4dh,4f4d4d4f4f4d4d4fh,4f4d4d4d4f4d4d4fh,4dff4c4d4f4d4d4fh,4d4d4d4d4f4d4d4fh,4f4f4dffff4c4c4dh,4f4d4d4f4f4d4c4dh,0ffffff4c4d4f4f4fh,0ff4d4f4f4d4f4f4dh,4f4dff4c4d4f4dffh,4dff4c4d4f4f4d4fh,4d4c4d4d4d4d4d4fh
+                       dq 4c4d4f4d4c4d4f4fh,0ffff4d4f4f4dffffh,0ff4c4d4f4dff4dffh,4c4d4f4f4d4f4f4dh,4d4d4d4f4d4d4f4dh,4c4d4f4f4d4c4d4dh,4d4f4f4d4c4d4f4dh,4d4f4f4d4c4d4d4ch,4d4f4f4d4d4d4f4dh,2 dup(4d4f4d4d4d4f4f4dh),4d4d4f4f4dffffffh,4f4f4f4d4c4d4f4fh,4f4dffffff4c4d4fh,4dff4d4f4f4d4d4fh,4d4d4f4f4d4d4f4fh,4f4f4dff4c4d4f4fh,4f4f4d4d4f4d4d4dh,0ffff4c4d4f4d4c4dh,4f4d4d4d4f4f4dffh,4f4f4d4d4f4f4d4dh,4f4d4c4d4f4f4d4dh,4f4d4d4d4f4f4d4dh,4f4d4c4d4f4f4d4dh,0ff4c4d4f4f4d4c4dh,4f4d4d4f4f4d4c4ch,4d4c4c4d4f4f4f4fh,4d4c4d4f4f4f4f4fh,0ff4c4d4f4f4f4f4fh,4d4f4f4f4f4dffffh,4c4d4f4f4dff4c4ch,4d4f4f4dffffff4ch,4f4dff4d4f4f4d4ch,4f4f4d4c4d4f4f4fh,4f4f4f4dffff4c4dh,4c4d4f4f4d4d4f4fh,0ffffffff4c4d4f4dh,4c4d4f4f4f4f4f4dh,4d4c4d4f4f4f4f4dh,4c4d4f4d4c4d4f4fh,4d4d4f4f4f4f4f4dh,4c4d4f4d4c4d4f4fh,0ffffff4c4c4d4dffh,4d4d4d4c4c4d4dffh,4d4dffff4c4c4d4dh,4d4dff4c4c4d4d4dh,0ffffff4c4c4d4d4dh
+                       dq 0ff4c4c4d4d4d4dffh,0ffff4c4d4f4f4dffh,0ff4c4c4d4dffffffh,4d4d4dff4c4c4d4dh,4c4c4d4dff4c4c4dh,4d4d4d4d4dffffffh,4dff4c4c4d4d4c4ch,4dffffffffff4c4ch,4dff4c4c4d4d4d4dh,4d4dff4c4c4d4d4dh,4dff4c4c4dff4c4ch,4d4d4c4c4d4d4d4dh,0ffff4c4c4dff4c4ch,0ffffffffffff4c4ch,4c4c4c4cffff4c4ch,4c4c4cffffffff4ch,4c4c4cffffff4c4ch,0ffffffffffff4c4ch,4f4dffff4c4c4c4ch,0ffffffff4c4c4d4fh,4cffffff4c4cffffh,4c4c4c4cffffff4ch,0ffffff4c4cffffffh,0ff4c4c4c4c4cffffh,0ff4cffffff4c4cffh,4c4cffffffffffffh,4c4cffffff4c4c4ch,0ff4c4cffffff4c4ch,4c4cffffff4cffffh,0ff4c4cffff4c4c4ch,0ffffffffff4cffffh,5 dup(0ffffffffffffffffh),4c4d4f4f4dffffffh,0ffffffffffffff4ch,16 dup(0ffffffffffffffffh),0ffff4c4c4d4dffffh,17 dup(0ffffffffffffffffh),0ffffffffff4c4cffh,10 dup(0ffffffffffffffffh),0ffffffffffffh,2 dup(0h)
 
 
 	; Masks
@@ -196,8 +227,33 @@ DATASEG
 	mask_number_8_outline dq 203160300201913h,60507020d1603h,140605070a060507h,0f1006030f000603h,410060204010602h,10d010201040102h,906010206120201h,0d020201090b0102h,150101020d100201h,1804010215100102h,3020101180d0102h,506010103100101h,0a020101050c0101h,0e0101010a100101h,0f0601010e110101h,160201010f0c0101h,16100101h,2 dup(0h)
 	mask_number_9_outline dq 40d1104001e1913h,1403050904010a05h,0c06040700060506h,10c070106110d01h,110c070105000701h,0e03020301040302h,0a12050114010302h,20d020210060105h,2030201150d0103h,160d01020b0b0102h,3020101010d0101h,5060101030f0101h,0b060101050b0101h,130201010e020101h,17020101130b0101h,170d0101h,2 dup(0h)
 
+	mask_button_shadow dd 21717h,2151402h,16020114h,3 dup(0h)
+	mask_button_border dq 10214000c1717h,214120214010214h,200010303001102h,115010101000101h,1302010102130101h,1400010113130101h,14150101h,2 dup(0h)
+	mask_button_body dd 11717h,2021212h,3 dup(0h)
 
+	mask_icon_restart dq 704080300131717h,5060207070d0404h,40801040f060207h,707010205100201h,0d070201090c0201h,60501010e0d0102h,60f0101060d0101h,8070101070c0101h,0e0801010a0b0101h,0f0d01010f050101h,2 dup(0h)
+	mask_icon_mainmenu dd 21717h,506030ah,0d06030ah,3 dup(0h)
+	mask_icon_shake dq 60b050200161717h,40703020b050205h,8020105080d0203h,0c0e01040d080501h,0e0c04010d0d0401h,7050103030c0301h,2080201090a0301h,0a08010208100102h,0d0902010c030102h,0f1102010d0e0102h,606010110100201h,0e0e0101h,2 dup(0h)
+	mask_icon_animation dq 4070207000f1717h,50604010a100403h,80f0202060e0202h,0f0502020b030202h,812020107050201h,0e1101020b0e0102h,6070101050e0101h,0c0f0101060d0101h,2 dup(0h)
 
+	mask_icon_bigrestart dq 3b45010100998080h,5814010127440105h,6824020270360115h,58150301174e0102h,6b32051e27490305h,1b1e01026c530104h,29140201334c0101h,311122053c0f0f02h,6b50040355500202h,54520308132d0318h,5b44010550290401h,1e60020235100701h,531202011d610101h,552d01012a4b0103h,1f5c01016b2c0306h,344b0b065f190101h,2929010a304f0101h,564e01023a460505h,3d4302012f500201h,5a47010221190101h,1e1b0101645d0105h,1a540102302a0101h,6c2a01021f1a0603h,146a040439470101h,645b060237490302h,4c2702012e120301h,2828010d631c0101h,1232010d2a290901h,271504016d530102h,682301015b350102h,324d0201572f0201h,6b280104574d0511h,2b13060365210305h,53130503584b0102h,4e260603675d0102h
+                         dq 5c5b0808562d0302h,1866080858300101h,1921010127261301h,1b6301012d4f0102h,1c58020116680202h,17240102651f0102h,24170101595e0302h,1d59010127270111h,5b610101555a0201h,5d6305015d1a0503h,142a020328270f01h,565b0101364a0101h,18510101126c0202h,251638102e2a0103h,195102031a200202h,594903045a330202h,665d01031b510507h,29280c01655d0104h,6b53010628470102h,5d1d0809522a0201h,2a2a010715490102h,1e580204621b0102h,1a64020238480201h,5354010466200101h,182204042b2a0106h,1c1d09095d180202h,3c44030215690101h,592d030622180302h,532b010154260807h,136b010149260501h,19650101184e1503h,685d01012f2a0102h,5d17010120511f1dh,314e03036e2f0103h,144502042c2a0105h
+                         dq 3e42010117670101h,5a60020115280102h,1c620404585e0101h,4b100501116d0101h,5c260f352d2a0104h,1d1c02011f5f0101h,2b4d010116261128h,2 dup(0h)
+	mask_icon_bigstart_shadow dq 7134010400438080h,713802156e530204h,284401032e500101h,6f2e010433290601h,2c2f01042a310106h,5e640101522b0101h,2b4b01026c570302h,68220101661f0101h,6d550102322c0101h,6b2601026a5b0102h,70310105136f0101h,4e29020169230101h,502a0201714d0105h,5f640502651e0101h,6c28010228350103h,2d2e01044b280301h,293301073f450229h,685e0101312c0102h,6a5f01013a260f02h,6f50010362630201h,302c010367620101h,704b010a695d0302h,40440101302b0501h,6d590102675f0302h,146e2d0266620102h,6660010149270301h,656104012f2c0104h,6d2a01022738020ch,312a06016a250101h,2c4d01012e2d0104h,6462020329460103h,3528070137270301h,6e2c01032b300105h,6b5902042a490102h,2 dup(0h)
+
+	mask_clickanywhere dq 0a570101009912c9h,0c47040104bc0302h,756050104600204h,0c7b01010c0a0101h,4020201044a0302h,1c70902018a0b02h,0cb70101092f0402h,56409020b6a0101h,0d0e0209b20402h,5170101043a0101h,5e01010b980101h,0abe02010e460101h,0c31010100ae0e02h,66a01010d300105h,0c990101044e0402h,1202020c820101h,46a020507c30301h,49402050b090102h,0c25010105a30c02h,722030209020401h,5b8090202090202h,4a502040c170101h,52f010106530601h,56f0101087d0204h,59901010ebf0101h,67c010106180101h,15e0d020f450202h,946040106490701h,569010105540302h,4c3030206c20701h,0b940101066f0302h,5a903010cb40101h,0cc7020207440302h,4a4010105000602h,625010109480501h,1145010105350902h
+                       dq 0c26020211be0101h,474010101040205h,47c020508b40204h,0c7c020605930101h,4180206057b0101h,4120a0205390902h,0c5002030c180206h,45a030209bf0401h,692060205240301h,0c0302070b570303h,855010106990602h,681030207ab0401h,0b7c010106230101h,0fbe0202097c0101h,7590402074a0301h,573090206160602h,200e0204b80101h,43f0101096a0101h,58101010b010101h,7bd030205aa0801h,0b03010110440201h,0ba5010106980101h,464010103010201h,86b020411a40101h,0c93010105b20101h,668060210bd0201h,0b240102043b0204h,0aa9020104750203h,53f090202020202h,0db30105048c0203h,0c7001010a450201h,0a23010204300205h,0cc00401067a0602h,0c34010108310204h,0c69010106940101h,0b18010104350101h
+                       dq 0c8b020409520301h,0c94020504b30205h,425020209c10501h,4430302084f0402h,0ca502050c6a0206h,2 dup(0h)
+
+	mask_logo_2 dq 210f010100483725h,107061407070107h,1b1d0103021b0102h,0a1901021f170105h,2c0c01032f010101h,61b140709070101h,1917010125120104h,2010020107140104h,261201032b050201h,205020230020722h,2117010328120101h,300004021d130201h,2907010108070103h,2b0c01041c140302h,2a0c010509220d02h,1d1d010120170104h,250b050728080201h,240c01011f110606h,2c04010108170101h,1622020103040101h,0b1a01011a1d0104h,4030604230d0201h,1e120101220e0303h,2e0c010107220201h,1a1605072d0c0102h,22170102000b010dh,3401020105200101h,2d0303030a040102h,31b03041b150101h,141a020123170101h,1c1d01020d240601h,3024060116190402h,1818020107180303h,2a06060605020401h,41f020127090302h
+                dq 260a01012e020201h,27120102h,2 dup(0h)
+	mask_logo_0 dq 0e020301004b382ch,92604022b1f0607h,30a01022d1e0201h,71b020433090102h,2a0c030130180103h,71f060707060508h,2b2602032c0d0101h,2d060409010e0102h,80e01030c032107h,310701012f100101h,321010104090303h,70e010606250101h,90e0102102a0401h,2702030104210303h,280a05022d050301h,826010131080203h,142a100211011602h,0d231e0705080201h,300f010507180103h,805040121220a01h,0a1e010106070101h,0d210502091d0102h,312104010c0b0202h,3610020c26210501h,242a0401340a0101h,2f2601010b280201h,0d2002012e1d0101h,360d0103020c0515h,250a030131220302h,52402012d260202h,2d0401010a0e0101h,0e0b020112220501h,2e0f0201361c0103h,2920020132240101h,180008012f1b0204h
+                dq 310b05160a040201h,11c010331240102h,0c0a07010010020ch,2 dup(0h)
+	mask_logo_4 dq 8130302002f382dh,0b1104071c0c0301h,1b010419060303h,5150606371e0104h,150907061f020101h,130b02010f150301h,110c0402140a0101h,119020921000801h,1512010102180101h,170802010f0e0606h,151004010b190101h,361c01081c0a0601h,0c10010104160101h,150f06010f140401h,2301071a1d030301h,1c0d010120010303h,1c0b04011b050101h,1511030102220101h,232c06010d0f0202h,31b330909120201h,23240708100d0101h,31702041c040706h,71401010f160101h,0b18030118070101h,2 dup(0h)
+	mask_logo_8 dq 121e0101005d3829h,171f0302160e0102h,30180103221e0101h,151b01011d220102h,2002010121010202h,221f040123090101h,10a061504050103h,2d0a010123000b03h,71c030303070101h,141c02011b080101h,370d010f2d1e0201h,1711070e30020101h,150a0204000d010eh,52202021e040101h,208030215030101h,2c270301120a0301h,1e17010333050101h,332301010b010801h,70a0106021f0102h,1619010c07030101h,0a1d0102090b0101h,310a061517230101h,3120050131230103h,131d030209260b01h,718010417210202h,1706020320201107h,1f09010522270301h,2f0c01012e010202h,201b01021c060303h,170501011e1a020bh,71f0f072c090a01h,31f04031f031406h,2e0a030206240101h,2b1f0b01081b0101h,2e1d01010b1e0101h
+                dq 2527070205041206h,90a03011d050201h,300c01041f250101h,3121040235080101h,422010121090103h,3223010208020d02h,140b01010c270501h,201d0203080a0104h,1c1f020333060203h,170908082f1b0204h,2209010220090104h,190701021b1f0101h,2 dup(0h)
+
+	
 	;   ____                        _                _      
 	;  / ___| __ _ _ __ ___   ___  | |    ___   __ _(_) ___ 
 	; | |  _ / _` | '_ ` _ \ / _ \ | |   / _ \ / _` | |/ __|
@@ -227,7 +283,7 @@ CODESEG
 
 
 
-proc Delay
+proc MainDelay
 	; parameters:
 	; - wait time (roughly in seconds)
 	; returns nothing.
@@ -248,7 +304,9 @@ proc Delay
 	loop Delay_Loop
 	pop cx bx ax bp
 	ret 2
-endp Delay
+endp MainDelay
+
+
 
 proc NumberClamp
 	; Info: Takes a number and clamps it to a minimum & maximum.
@@ -289,7 +347,7 @@ proc NumberMin
 	value2 equ [word ptr bp + 4]
     mov ax, value2
 	cmp ax, value1
-	ja NumberMin_Skip
+	jl NumberMin_Skip
     	mov value1, ax
 	NumberMin_Skip:
 	pop ax
@@ -308,7 +366,7 @@ proc NumberMax
 	value2 equ [word ptr bp + 4]
     mov ax, value2
 	cmp ax, value1
-	jb NumberMax_Skip
+	jg NumberMax_Skip
     	mov value1, ax
 	NumberMax_Skip:
 	pop ax
@@ -431,7 +489,6 @@ proc NumberCubicCurveCache
 	add di, nStart ; AX = nStart * 3
 	add di, nEnd ; AX = (3*nStart)+newNEnd
 	mov bx, di
-	call Break
 
 	shl di, 6
 	add di, frame
@@ -476,7 +533,6 @@ proc NumberGetStringLength
     pop bp
 	ret
 endp NumberGetStringLength
-
 
 proc NumberToString
 	; Info: Takes an unsigned integer and parses it into a base-10 string at the specified offset.
@@ -528,6 +584,7 @@ proc NumberToString
     pop bp
 	ret 4
 endp NumberToString
+
 
 
 
@@ -963,44 +1020,13 @@ endp ListSetCount
 
 
 
-proc BufferClear
-	; Info: Clears the screen buffer.
-	push ax bx cx di es
-	mov ax, ScreenBuffer
-	mov es, ax ;ES is now at the screen buffer
-	xor di, di
-	mov cx, 32000
-	xor ax, ax
-	rep stosw
-	pop es di cx bx ax
-	ret
-endp BufferClear
-
-proc BufferRender
-	; Info: Renders the Screen Buffer onto the video memory.
-	push ax cx di ds si es
-
-	mov ax, ScreenBuffer
-	mov ds, ax ; DS is now at the screen buffer
-	mov di, 0
-
-	mov ax, 0A000h
-	mov es, ax ; ES is now at the video memory
-	mov si, 0
-
-	mov cx, (320*200) ;We wanna iterate 64k times for every pixel
-
-	rep movsb ;This does that shit
-
-	pop es si ds di cx ax
-	ret
-endp BufferRender
 
 proc RenderScreen
 	; Info: Renders the game's objects onto the screen.
 	push ax bx cx dx si
 	call BufferClear
 	
+	call RenderPreLoop
 	call RenderShake
 	call RenderParticles
 	cmp [word ptr game_mode], gamemodeMainMenu
@@ -1010,36 +1036,47 @@ proc RenderScreen
 		call RenderAnimation
 		call RenderGameUI
 	RenderScreen_SkipGameRender:
+	
+	call RenderCursor
 
 	inc [word ptr game_rendercycles]
 	pop si dx cx bx ax
 	ret
 endp RenderScreen
 
+proc RenderPreLoop
+	; Info: Called before every render.
+	push ax
+	; If no-animation toggle is turned on, turn the animation frame null.
+	cmp [word ptr internal_buttonToggles+(3*2)], 1
+	jne RenderAnimation_DontResetFrame
+		mov [word ptr rendering_animationFrame], nullword
+	RenderAnimation_DontResetFrame:
+
+	pop ax
+	ret
+endp RenderPreLoop
+
 proc RenderBoard
 	; Info: Renders the board onto the buffer. Not including blocks.
 	push ax bx
 	
-	push offset mask_board
-	push 3
-	push 0
-	push 0
-	push boolTrue
-	call BufferMaskCenter
+	mov bx, boolTrue
+
+	mov ax, 2
+	push offset mask_boardborder 70 ax ax bx
+	call BufferMaskCenter ; Render the border shadow
+
+	xor ax, ax
+	push offset mask_board 3 ax ax bx
+	call BufferMaskCenter ; Render the board body
 	
-	push offset mask_boardstripes
-	push 2
-	push 0
-	push 0
-	push boolTrue
-	call BufferMaskCenter
+	push offset mask_boardstripes 2 ax ax bx
+	call BufferMaskCenter ; Render the board stripes
 	
-	push offset mask_boardborder
-	push 4
-	push 0
-	push 0
-	push boolTrue
-	call BufferMaskCenter
+	push offset mask_boardborder 4 ax ax bx
+	call BufferMaskCenter ; Render the actual border
+
 
 	pop bx ax
 	ret
@@ -1071,10 +1108,25 @@ proc RenderBlocks
 			mov si, [word ptr di]
 			shl si, 1 ;Multiply the type by 2, because each offset is a word.
 			add si, offset internal_blockSpriteOffsets
-			push [word ptr si]
-			push ax
-			push dx
+			push [word ptr si] ax dx
 			call BufferSprite
+			cmp [word ptr game_mode], gamemodeDead
+			jne RenderBlocks_DontRender
+				push cx
+				mov si, 16
+				sub si, cx
+				mov cx, si
+				and cx, 11b ; the last 2 bits are the X
+				shr si, 2 ;make the SI only Y
+				add si, cx ; SI = X + Y, so we get that diagonal effect
+				shl si, 5
+				add si, constant_framesToShowStuckBlocks
+				pop cx
+				cmp [word ptr game_loseTimer], si
+				jl RenderBlocks_DontRender
+					mov si, offset sprite_stuckblock
+					push si ax dx
+					call BufferSprite
 		RenderBlocks_DontRender:
 
 		inc bl
@@ -1097,14 +1149,38 @@ proc RenderShake
 	; Info: Handles all the camera shake rendering/frame code.
 	push ax bx cx dx di si
 	
-	cmp [word ptr rendering_animationFrame], constant_mergeScreenshakeFrame
-	jne RenderShake_DontMergeShake
+	; cmp [word ptr rendering_animationFrame], constant_mergeScreenshakeFrame
+	; jne RenderShake_DontMergeShake
 	cmp [byte ptr rendering_mergedScore], 2
 	jb RenderShake_DontMergeShake
 		; Merge Shake
 		push 15 1 2
 		call AnimationShake
+		mov [byte ptr rendering_mergedScore], 0
 	RenderShake_DontMergeShake:
+
+	cmp [word ptr game_mode], gamemodeDead
+	jne RenderShake_DontShakeStuck
+		cmp [word ptr game_loseTimer], ((0*32)+constant_framesToShowStuckBlocks)
+		je RenderShake_ShakeStuck
+		cmp [word ptr game_loseTimer], ((1*32)+constant_framesToShowStuckBlocks)
+		je RenderShake_ShakeStuck
+		cmp [word ptr game_loseTimer], ((2*32)+constant_framesToShowStuckBlocks)
+		je RenderShake_ShakeStuck
+		cmp [word ptr game_loseTimer], ((3*32)+constant_framesToShowStuckBlocks)
+		je RenderShake_ShakeStuck
+		cmp [word ptr game_loseTimer], ((4*32)+constant_framesToShowStuckBlocks)
+		je RenderShake_ShakeStuck
+		cmp [word ptr game_loseTimer], ((5*32)+constant_framesToShowStuckBlocks)
+		je RenderShake_ShakeStuck
+		cmp [word ptr game_loseTimer], ((6*32)+constant_framesToShowStuckBlocks)
+		je RenderShake_ShakeStuck
+		
+		jmp RenderShake_DontShakeStuck
+		RenderShake_ShakeStuck:
+			push 5 3 3
+			call AnimationShake
+	RenderShake_DontShakeStuck:
 
 
 	; Shake Offset Code
@@ -1322,24 +1398,24 @@ proc RenderGameUI
 	push ax bx cx dx di si
 	mov ax, 242
 	mov bx, 45
-	mov si, 73
+	mov si, 61
 	
 	push offset mask_ui_score_outline si ax bx ; Shadow
 	call BufferMask
 	dec ax
 	dec bx
 
-	mov si, 76
+	mov si, 64
 	push offset mask_ui_score_outline si ax bx ; Outline
 	call BufferMask
 
-	mov si, 79
+	mov si, 67
 	push offset mask_ui_score_main si ax bx ; Body
 	call BufferMask
 
 	mov di, 11
 	push offset mask_ui_score_main di si ; Dither
-	mov si, 77
+	mov si, 65
 	push si ax bx
 	call BufferMaskDither
 
@@ -1355,6 +1431,8 @@ proc RenderGameUI
 	push si ax bx ;Center, Top Left X & Y
 	call BufferString
 
+	call RenderButtons
+	call RenderGameOverUI
 	pop si di dx cx bx ax
 	ret
 endp RenderGameUI
@@ -1375,11 +1453,8 @@ proc RenderParticles
 		pop si
 		cmp si, 0
 		jne RenderParticles_ForeachContinue
-			cmp [word ptr game_mode], gamemodePlaying
-			jne RenderParticles_DontMove
-				inc [word ptr di]
-				inc [word ptr di+2]
-			RenderParticles_DontMove:
+			inc [word ptr di]
+			inc [word ptr di+2]
 			cmp [word ptr di], 320 ;X border detection
 			jl RenderParticles_DontWrapX
 				sub [word ptr di], (320+100)
@@ -1414,7 +1489,144 @@ proc RenderParticles
 	ret
 endp RenderParticles
 
+proc RenderCursor
+	; Info: Renders the mouse cursor.
+	; Parameters: 
+	;push ax bx
+	cmp [byte ptr internal_movedMouse], boolFalse
+	je RenderCursor_DontRender
+	push offset sprite_cursor [word ptr internal_mouseX] [word ptr internal_mouseY]
+	call BufferSprite
 
+	RenderCursor_DontRender:
+	;pop bx ax
+	ret
+endp RenderCursor
+
+proc RenderButtons
+	; Info: Renders all the buttons next to the board.
+	push ax bx cx dx di si
+
+	mov ax, 64 ; Button X
+	mov bx, 46 ; Starting Button Y
+	mov cx, constant_amountOfButtons ; Amt. of buttons
+	mov di, 0
+	RenderButtons_RenderLoop:
+		mov si, 70
+		push offset mask_button_shadow si ax bx
+		call BufferMask ; Render the button shadow
+		mov si, 3
+		push offset mask_button_body si ax bx
+		call BufferMask ; Render the button body
+		mov si, 4
+		push offset mask_button_border si ax bx
+		call BufferMask ; Render the button border
+		
+		call RenderButtons_ButtonIcon
+
+		dec ax ;bring back X to its original position
+		add di, 2 ;Go to the next offset
+		add bx, 29 ; go down 30 Y, but also decrease it by 1 since we increased it for the shadow
+		loop RenderButtons_RenderLoop
+
+	
+	pop si di dx cx bx ax
+	ret
+
+	RenderButtons_ButtonIcon:
+		mov si, 72
+		mov dx, 71
+		cmp [word ptr di+internal_activeMouseActions], boolFalse
+		je RenderButtons_NotHighlighted
+			mov si, 22
+			mov dx, 21
+		RenderButtons_NotHighlighted:
+		push [di+internal_buttonIconOffsets] si ax bx ; icon
+		inc ax
+		inc bx
+		push [di+internal_buttonIconOffsets] dx ax bx ; icon shadow, X and Y are displaced by 1
+		call BufferMask ; Render the button icon shadow
+		call BufferMask ; Render the button icon
+
+
+		cmp [word ptr di+internal_buttonToggles], boolFalse
+		je RenderButtons_NotToggled
+			add ax, 2
+			add bx, 4
+			push offset sprite_button_x ax bx
+			call BufferSprite
+			sub ax, 2
+			sub bx, 4
+		RenderButtons_NotToggled:
+		ret
+endp RenderButtons
+
+proc RenderGameOverUI
+	cmp [word ptr rendering_gameOverFrame], 0
+	jg RenderGameOverUI_ShowGameOver
+		ret
+	RenderGameOverUI_ShowGameOver:
+	push ax bx cx dx di si
+	; show the game over screen here
+	mov si, 71 ; Color
+	mov bx, 96 ; X
+	mov cx, 36 ; Y
+	mov di, [word ptr rendering_gameOverFrame]
+	mov dx, 150
+	sub dx, di
+	neg di
+	push dx 0
+	call NumberMin
+	pop dx
+	push offset mask_icon_bigstart_shadow di si 3 bx cx
+	call BufferMaskDither ; Render the shadow dither
+	push offset mask_icon_bigstart_shadow dx si si bx cx
+	call BufferMaskDither ; Render the shadow
+
+	
+	inc si ; SI = 72, the color of the body
+	push offset mask_icon_bigrestart di si 71 bx cx
+	call BufferMaskDither ; Render the body dither
+	push offset mask_icon_bigrestart dx si si bx cx
+	call BufferMaskDither ; Render the body
+	pop si di dx cx bx ax
+	ret
+endp RenderGameOverUI
+
+
+
+proc BufferClear
+	; Info: Clears the screen buffer.
+	push ax bx cx di es
+	mov ax, ScreenBuffer
+	mov es, ax ;ES is now at the screen buffer
+	xor di, di
+	mov cx, 32000
+	xor ax, ax
+	rep stosw
+	pop es di cx bx ax
+	ret
+endp BufferClear
+
+proc BufferRender
+	; Info: Renders the Screen Buffer onto the video memory.
+	push ax cx di ds si es
+
+	mov ax, ScreenBuffer
+	mov ds, ax ; DS is now at the screen buffer
+	mov di, 0
+
+	mov ax, 0A000h
+	mov es, ax ; ES is now at the video memory
+	mov si, 0
+
+	mov cx, (320*200) ;We wanna iterate 64k times for every pixel
+
+	rep movsb ;This does that shit
+
+	pop es si ds di cx ax
+	ret
+endp BufferRender
 
 proc BufferRect
 	; Info: Renders a rectangle with a color (byte, lower half) onto the buffer.
@@ -1497,7 +1709,6 @@ proc BufferRect
 	ret 10
 endp BufferRect
 
-
 proc BufferRectDither
 	; Info: Renders a rectangle with a color (byte, lower half) and dither color (byte, lower half) onto the buffer.
 	; Parameters: Rows to skip, AnchorX, AnchorY, Color1, Color2, Width, Height, Top Left X, Top Left Y
@@ -1574,7 +1785,6 @@ proc BufferRectDither
 	mov dx, color2
 	mov ah, dl ; higher half of ax is replaced with the lower half of dl, aka color2.
 	mov cx, rectHeight
-	call Break
 	mov dx, topLeftY
 	sub dx, anchorY
 	mov si, dx
@@ -1647,7 +1857,6 @@ proc BufferRectDither
 		ret
 
 endp BufferRectDither
-
 
 proc BufferMask
 	; Info: Renders a mask, which is a collection of rects.
@@ -1779,7 +1988,6 @@ proc BufferMaskDither
 	ret 12
 endp BufferMaskDither
 
-
 proc BufferMaskWithStyle
 	; Info: Buffers a mask with a style. If style is 0, will treat style parameter as color.
 	; Parameters: Mask Offset, Style Offset, Style Parameter, Top left X, Top Left Y
@@ -1820,29 +2028,29 @@ proc BufferStyle_ShadowOutlineDither
 	mov ax, topLeftX
 	mov bx, topLeftY ;74, 75
 	
-	mov si, 74 ; Outline Shadow
+	mov si, 62 ; Outline Shadow
 	push di si ax bx
 	call BufferMask
 
 	dec ax
 	dec bx
 
-	mov si, 75 ; Outline
+	mov si, 63 ; Outline
 	push di si ax bx
 	call BufferMask
 
 	inc ax
 	inc bx
 	
-	mov si, 78 ; Body
+	mov si, 66 ; Body
 	push maskOffset si ax bx
 	call BufferMask
 
 	mov si, -6
 	push maskOffset si ; Skip Rows
-	mov si, 78 ; Dither Color1
+	mov si, 66 ; Dither Color1
 	push si
-	mov si, 80 ; Dither Color2
+	mov si, 68 ; Dither Color2
 	push si ax bx
 	call BufferMaskDither
     
@@ -1868,14 +2076,14 @@ proc BufferStyle_ShadowOutlineDitherProcedual
 	add ax, 2
 	add bx, 2
 
-	mov si, 74 ; Shadow
+	mov si, 62 ; Shadow
 	push maskOffset si ax bx
 	call BufferMask
 	
 	
 	sub ax, 1
 	sub bx, 2
-	mov si, 75 ; Outline
+	mov si, 63 ; Outline
 	
 	push maskOffset si ax bx
 	call BufferMask
@@ -1893,20 +2101,19 @@ proc BufferStyle_ShadowOutlineDitherProcedual
 	push maskOffset si ax bx
 	call BufferMask
 
-	mov si, 78 ; Body
-	push maskOffset 78 topLeftX topLeftY
+	mov si, 66 ; Body
+	push maskOffset si topLeftX topLeftY
 	call BufferMask
 
-	mov si, 80 ; Dithers
+	mov si, 68 ; Dithers
 
-	push maskOffset 78 si topLeftX topLeftY
+	push maskOffset 66 si topLeftX topLeftY
 	call BufferMaskDither
     
     pop si bx ax
     pop bp
 	ret 8
 endp BufferStyle_ShadowOutlineDitherProcedual
-
 
 proc BufferMaskCenter
 	; Info: Renders a mask from its center. RelativeScreenPoint will make the coordinates 0,0 the screen's center.
@@ -2073,7 +2280,6 @@ proc BufferSprite
 	ret 6
 endp BufferSprite
 
-
 proc BufferSpriteBoundary
 	; Info: Renders a sprite onto the buffer.
 	; Parameters: Sprite Offset, Top Left X, Top Left Y, Boundary Coordinate, Direction
@@ -2227,7 +2433,6 @@ proc BufferSpriteCenter
 	ret 8
 endp BufferSpriteCenter
 
-
 proc BufferString
 	; Info: Buffer a string from an offset. Will buffer till it hits a 0 byte.
 	; Parameters: String Offset, Style Offset, Style Parameter, Alignment (0 - Left, 1 - Right, 2 - Center), Top Left X, Top Left Y
@@ -2285,15 +2490,28 @@ endp BufferString
 proc GameUpdateLoop
 	; Info: Called every frame render.
 	push ax bx cx dx di si
+	;inc [word ptr internal_gameOverFrameAddCounter]
 	cmp [word ptr game_mode], gamemodeDead ; are we dead boys
 	jne GameUpdateLoop_NotDead ;naah
-		inc [word ptr game_loseTimer]
-		cmp [word ptr game_loseTimer], constant_framesToShowGameOver
-		jne GameUpdateLoop_DontShowGameOver
-			; show the game over screen here
-			mov [word ptr game_loseTimer], nullword
-		GameUpdateLoop_DontShowGameOver:
+		cmp [word ptr game_loseTimer], (constant_framesToShowGameOver)
+		jae GameUpdateLoop_DontAddLoseTimer
+			inc [word ptr game_loseTimer]
+			jmp GameUpdateLoop_DeadFinish
+		GameUpdateLoop_DontAddLoseTimer:
+		cmp [word ptr rendering_gameOverFrame], 200
+		jge GameUpdateLoop_DeadFinish
+			add [word ptr rendering_gameOverFrame], 2
+		jmp GameUpdateLoop_DeadFinish
 	GameUpdateLoop_NotDead:
+	; Decrease from the frame
+	;mov [word ptr internal_gameOverFrameAddCounter], 0
+	cmp [word ptr rendering_gameOverFrame], 0
+	jle GameUpdateLoop_DeadFinish
+		sub [word ptr rendering_gameOverFrame], 3
+		cmp [word ptr rendering_gameOverFrame], 0
+		jge GameUpdateLoop_DeadFinish
+			mov [word ptr rendering_gameOverFrame], 0
+	GameUpdateLoop_DeadFinish:
 	pop si di dx cx bx ax
 	ret
 endp GameUpdateLoop
@@ -2431,24 +2649,24 @@ proc GameMove
 		loop GameMove_LinesLoop
 	
 	xor bx, bx
-	cmp [word ptr game_score], 100
+	cmp [word ptr game_score], 500
 	jb GameMove_CantSpawnFour ; can only spawn 4s above a score of 100
 		push 0 20
 		call NumberRandom
 		pop ax
-		cmp ax, 5
+		cmp ax, 10
 		ja GameMove_CantSpawnFour
 		mov bx, 1 ;type 1 would be a 4
 	GameMove_CantSpawnFour:
-	cmp [word ptr game_score], 500
-	jb GameMove_CantSpawnEight ; can only spawn 8s above a score of 500
-		push 0 20
-		call NumberRandom
-		pop ax
-		cmp ax, 5
-		ja GameMove_CantSpawnEight
-		mov bx, 2 ;type 2 would be an 8
-	GameMove_CantSpawnEight:
+	; cmp [word ptr game_score], 500
+	; jb GameMove_CantSpawnEight ; can only spawn 8s above a score of 500
+	; 	push 0 20
+	; 	call NumberRandom
+	; 	pop ax
+	; 	cmp ax, 5
+	; 	ja GameMove_CantSpawnEight
+	; 	mov bx, 2 ;type 2 would be an 8
+	; GameMove_CantSpawnEight:
 	cmp [byte ptr internal_shouldSpawnBlock], boolFalse
 	je GameMove_DontSpawnBlock
 		push bx
@@ -2667,11 +2885,11 @@ proc GameSetMode
 	cmp [word ptr game_mode], ax
 	je GameSetMode_Ignore
 
+	mov [word ptr game_loseTimer], 0
 	cmp newGamemode, gamemodePlaying
 	jne GameSetMode_NotPlaying
 		; Set to playing
-		mov [word ptr game_score], 0
-		call InitializeBoard
+		call GameRestart
 	GameSetMode_NotPlaying:
 
 	cmp newGamemode, gamemodeMainMenu
@@ -2682,7 +2900,6 @@ proc GameSetMode
 	cmp newGamemode, gamemodeDead
 	jne GameSetMode_NotDead
 		; Set to dead
-		mov [word ptr game_loseTimer], 0
 	GameSetMode_NotDead:
 
 	cmp newGamemode, gamemodePause
@@ -2749,6 +2966,17 @@ proc GameCalculateBoardOffset
 	ret 2
 endp GameCalculateBoardOffset
 
+proc GameRestart
+	; Info: Restarts the played game.
+	
+	mov [word ptr game_mode], gamemodePlaying
+
+	mov [word ptr game_score], 0
+	call InitializeAnimation
+	call InitializeBoard
+
+	ret
+endp GameRestart
 
 
 
@@ -2889,6 +3117,84 @@ proc InitializeInternal
 	pop si di dx cx bx ax
 	ret
 endp InitializeInternal
+
+proc InitializeInteractions
+	; Info: Initializes all the interaction-based things - key actions, mouse actions, etc.
+	push ax bx cx dx di si
+
+	mov ax,0h
+	int 33h ; Activate mouse cursor input
+	
+	mov ax,2h
+	int 33h ; Hide the mouse cursor
+
+	mov ax,1ah
+	mov bx, 30
+	mov cx, 30
+	mov dx, 40h
+	int 33h ; Set mouse sensitivity
+
+	call InitializeKeyActions
+	call InitializeAllMouseActions
+
+	pop si di dx cx bx ax
+	ret
+endp InitializeInteractions
+
+proc InitializeAllMouseActions
+	; Info: Initializes all mouse actions.
+	push bx si
+
+	push offset MouseAction_GameRestart 64 (46+(0*30)) 87 (69+(0*30))
+	call InitializeMouseAction
+	push offset MouseAction_GameMainMenu 64 (46+(1*30)) 87 (69+(1*30))
+	call InitializeMouseAction
+	push offset MouseAction_GameShakeToggle 64 (46+(2*30)) 87 (69+(2*30))
+	call InitializeMouseAction
+	push offset MouseAction_GameAnimationToggle 64 (46+(3*30)) 87 (69+(3*30))
+	call InitializeMouseAction
+	
+	push offset MouseAction_Board 96 56 (96+128) (56+128)
+	call InitializeMouseAction
+
+	pop si bx
+	ret
+endp InitializeAllMouseActions
+
+proc InitializeMouseAction
+	; Info: Initializes a mouse action, increasing the pointer and adding it to the recognized list.
+	; Parameters: Procedure Offset, Boundary Top Left X, Boundary Top Left Y, Boundary Bottom Right X, Boundary Bottom Right Y
+    push bp
+    mov bp, sp
+    push ax bx cx dx di si
+    procedureOffset equ [word ptr bp + 12]
+    boundaryTopLeftX equ [word ptr bp + 10]
+    boundaryTopLeftY equ [word ptr bp + 8]
+    boundaryBottomRightX equ [word ptr bp + 6]
+    boundaryBottomRightY equ [word ptr bp + 4]
+
+	mov di, [word ptr internal_mouseActionsPointer]
+	shl di, 1
+	mov cx, di
+	shl di, 2
+	add di, cx ; DI = MousePointer * 10
+	inc [word ptr internal_mouseActionsPointer]
+	add di, offset internal_mouseActions
+	mov ax, procedureOffset
+	mov [di], ax
+	mov ax, boundaryTopLeftX
+	mov [di+2], ax
+	mov ax, boundaryTopLeftY
+	mov [di+4], ax
+	mov ax, boundaryBottomRightX
+	mov [di+6], ax
+	mov ax, boundaryBottomRightY
+	mov [di+8], ax
+    
+	pop si di dx cx bx ax
+	pop bp
+	ret 10
+endp InitializeMouseAction
 
 proc InitializeKeyActions
 	; Info: Initializes all the key actions.
@@ -3102,6 +3408,9 @@ proc AnimationShake
     strength equ [word ptr bp + 6]
 	priority equ [word ptr bp + 4]
 
+	cmp [word ptr internal_buttonToggles+(2*2)], 1
+	je AnimationShake_DontSet
+
 	cmp [word ptr rendering_shake_framesLeft], nullword
 	je AnimationShake_DontCheckPriority
 		; Compare priorities, if lower than the current one, don't change the camerashake variables.
@@ -3122,6 +3431,8 @@ proc AnimationShake
     pop bp
 	ret 6
 endp AnimationShake
+
+
 
 
 proc MainProcessKey
@@ -3164,6 +3475,8 @@ proc MainProcessKey
 		je MainProcessKey_Cheat
 		cmp bl, 2
 		je MainProcessKey_Break
+		cmp bl, 3
+		je MainProcessKey_Restart
     MainProcessKey_Finish:
     pop si di dx cx bx ax
     pop bp
@@ -3176,7 +3489,12 @@ proc MainProcessKey
 		jmp MainProcessKey_Finish
 	MainProcessKey_Break: ; BL=2, BH=
 		;inc [word ptr internal_totalRectMax]
+		push gamemodeDead
+		call GameSetMode
 		call Break
+		jmp MainProcessKey_Finish
+	MainProcessKey_Restart: ; BL=3, BH=None
+		call GameRestart
 		jmp MainProcessKey_Finish
 
 endp MainProcessKey
@@ -3213,20 +3531,165 @@ endp MainProcessKey_Pause
 proc MainProcessKey_Dead
 	; Info: Processes a key pressed by the player, while dead.
 	; BL = Action Type, BH = Parameter, Any other registers are free to use.
-	cmp bl, 3
-	je MainProcessKey_Restart
 
 	jmp MainProcessKey_FinishModeActions ; Return
-	
-	MainProcessKey_Restart: ; BL=3, BH=None
-		push gamemodePlaying
-		call GameSetMode
-		jmp MainProcessKey_Finish
 endp MainProcessKey_Dead
+
+proc MainProcessMouse
+	; Info: Processes the mouse inputs, calling necessary mouse actions.
+	push di si ax
+
+	shr cx, 1 ;CX needs to divide by 2
+	mov ax, cx
+
+	push ax
+	push [word ptr internal_mouseX]
+
+	mov [word ptr internal_mouseX], ax
+	mov [word ptr internal_mouseY], dx
+
+	pop ax ; ax = old internalmousex
+	cmp [byte ptr internal_movedMouse], boolTrue
+	je MainProcessMouse_AlreadyMoved
+		cmp ax, nullword
+		je MainProcessMouse_AlreadyMoved ; if it's null we can't really know yet
+		cmp [word ptr internal_mouseX], ax 
+		je MainProcessMouse_AlreadyMoved ; if it's the same as the old version, it didn't move
+		mov [byte ptr internal_movedMouse], boolTrue
+	MainProcessMouse_AlreadyMoved:
+	; pop ax ; ax goes back to being shifted cx
+	; 		removing these two because they cancel out.
+	; push ax ; pushed back right here
+	mov al, [byte ptr internal_mouseLeftClick]
+	mov [byte ptr internal_mouseLeftClick], 0
+	mov [byte ptr internal_mouseLeftClickFirst], 0
+	shr bx, 1
+	jnc MainProcessMouse_LeftClickSkip
+		cmp al, 1
+		mov [byte ptr internal_mouseLeftClick], 1 ; This'll add 1 if left clicked
+		je MainProcessMouse_LeftClickSkip
+		mov [byte ptr internal_mouseLeftClickFirst], 1
+	MainProcessMouse_LeftClickSkip:
+
+	mov al, [byte ptr internal_mouseRightClick]
+	mov [byte ptr internal_mouseRightClick], 0
+	mov [byte ptr internal_mouseRightClickFirst], 0
+	shr bx, 1
+	jnc MainProcessMouse_RightClickSkip
+		cmp al, 1
+		mov [byte ptr internal_mouseRightClick], 1 ; This'll add 1 if Right clicked
+		je MainProcessMouse_RightClickSkip
+		mov [byte ptr internal_mouseRightClickFirst], 1
+	MainProcessMouse_RightClickSkip:
+	pop ax
+
+
+	mov cx, [word ptr internal_mouseActionsPointer]
+	mov di, offset internal_mouseActions
+	mov si, offset internal_activeMouseActions
+	MainProcessMouse_CheckLoop:
+		cmp ax, [di+2] ; Top Left X
+		jb MainProcessMouse_CheckFalse
+		cmp dx, [di+4] ; Top Left Y
+		jb MainProcessMouse_CheckFalse
+		cmp ax, [di+6] ; Bottom Right X
+		ja MainProcessMouse_CheckFalse
+		cmp dx, [di+8] ; Bottom Right Y
+		ja MainProcessMouse_CheckFalse
+		
+		; Check is true
+		mov [word ptr si], boolTrue
+
+		cmp [word ptr di], nullword
+		je MainProcessMouse_NoProcedureOffset
+			call [word ptr di] ; call the function offset
+		MainProcessMouse_NoProcedureOffset:
+		
+		add di, 10
+		add si, 2
+	loop MainProcessMouse_CheckLoop
+
+	pop ax si di
+	ret
+
+	MainProcessMouse_CheckFalse:
+		mov [word ptr si], boolFalse
+		jmp MainProcessMouse_NoProcedureOffset
+
+endp MainProcessMouse
+
+proc MouseAction_GameRestart
+	; Info: Called when the Game Restart button is hovered.
+	cmp [byte ptr internal_mouseLeftClickFirst], boolTrue
+	jne MouseAction_GameRestart_NotClicking
+		; Restart
+		call GameRestart
+	MouseAction_GameRestart_NotClicking:
+	ret
+endp MouseAction_GameRestart
+
+proc MouseAction_GameMainMenu
+	; Info: Called when the Game Main Menu button is hovered.
+	cmp [byte ptr internal_mouseLeftClickFirst], boolTrue
+	jne MouseAction_GameMainMenu_NotClicking
+		; Main Menu
+		push gamemodeMainMenu
+		call GameSetMode
+	MouseAction_GameMainMenu_NotClicking:
+	ret
+endp MouseAction_GameMainMenu
+
+proc MouseAction_GameShakeToggle
+	; Info: Called when the Game Shake Toggle button is hovered.
+	cmp [byte ptr internal_mouseLeftClickFirst], boolTrue
+	jne MouseAction_GameShakeToggle_NotClicking
+		; Shake Toggle
+		xor [word ptr internal_buttonToggles + (2*2)], 1b ;switch the first bit on and off.
+		jnz MouseAction_GameShakeToggle_ToggledOn ; If toggled on, no need to activate the next part.
+			; If toggled off, we shake a lil bit just to show the animation off lol
+			push 40 2 5 ;duration, strength, priority
+			call AnimationShake
+			jmp MouseAction_GameShakeToggle_NotClicking
+		MouseAction_GameShakeToggle_ToggledOn:
+			mov [word ptr rendering_shake_xOffset], 0
+			mov [word ptr rendering_shake_yOffset], 0
+	MouseAction_GameShakeToggle_NotClicking:
+	ret
+endp MouseAction_GameShakeToggle
+
+proc MouseAction_GameAnimationToggle
+	; Info: Called when the Game Animation Toggle button is hovered.
+	cmp [byte ptr internal_mouseLeftClickFirst], boolTrue
+	jne MouseAction_GameAnimationToggle_NotClicking
+		; Shake Toggle
+		xor [word ptr internal_buttonToggles + (3*2)], 1b ;switch the first bit on and off.
+		jz MouseAction_GameAnimationToggle_NotClicking ; If toggled on, no need to activate the next part.
+			; If toggled on, clear all the current animations.
+			call InitializeAnimation
+	MouseAction_GameAnimationToggle_NotClicking:
+	ret
+endp MouseAction_GameAnimationToggle
+
+proc MouseAction_Board
+	; Info: Called when the game board is hovered.
+	cmp [word ptr game_mode], gamemodeDead
+	jne MouseAction_Board_NoRestartButton
+		cmp [word ptr rendering_gameOverFrame], 120
+		jb MouseAction_Board_NoRestartButton
+			cmp [byte ptr internal_mouseLeftClickFirst], boolTrue
+			jne MouseAction_Board_NoRestartButton
+				; Restart
+				call GameRestart
+	MouseAction_Board_NoRestartButton:
+	ret
+endp MouseAction_Board
+
+
 
 proc Break
 	ret
 endp Break
+
 
 
 start:
@@ -3241,12 +3704,13 @@ start:
 	mov ax, 13h
 	int 10h
 
-	call InitializeKeyActions
+	call InitializeInteractions
 	call InitializePalette
 	call InitializeParticles
 	call InitializeAnimation
 	call InitializeCurve
 	call InitializeBoard
+
 
 	xor ax, ax
 	xor bx, bx
@@ -3254,7 +3718,7 @@ start:
 	GameLoop:
 	mov ah, 1h
 	int 16h
-	jz GameLoopRender ;skip if key isn't pressed
+	jz GameLoopCheckMouse ;skip if key isn't pressed
 		mov ah, 0h
 		int 16h
 		cmp al, 'q'
@@ -3263,7 +3727,12 @@ start:
 		push bx
 		call MainProcessKey
 		jmp GameLoop
-	GameLoopRender:
+	GameLoopCheckMouse:
+		mov ax,3h
+		int 33h
+		call MainProcessMouse
+		xor ax, ax
+		xor bx, bx
 		call RenderScreen
 		call BufferRender
 		call GameUpdateLoop

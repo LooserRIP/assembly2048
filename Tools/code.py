@@ -7,7 +7,7 @@ import os
 import colorsys
 import shutil
 import time
-
+import random
 
 def to_little_endian_bytes(value):
     """Convert an integer value to a little-endian byte representation."""
@@ -259,6 +259,7 @@ def mask_to_rects(image_path):
 
     words = []
     finals = []
+    allrects = [];
     maxperline = 260
     i = 0;
     sprite_type = 0;
@@ -290,7 +291,7 @@ def mask_to_rects(image_path):
     for alloci in range(4): #allocate 4 bytes
         words.append("alloc");
     totalrects = 0;
-    for iteration in range(100):
+    for iteration in range(500):
         if (totalLeft == 0): break;
         rect = find_best_rect(masktable, width, height);
         for yDelete in range(rect['height']):
@@ -303,13 +304,18 @@ def mask_to_rects(image_path):
                 totalLeft -= 1;
         print(f"Iteration: {iteration}: {rect}, Total Left: {totalLeft}")
         #words.append(create_doubleword(rect['width'] - 1, rect['height'] - 1, rect['x'], rect['y'], True))
-        words.append(hexa(rect['width'], 1))
-        words.append(hexa(rect['height'], 1))
-        words.append(hexa(rect['x'], 1))
-        words.append(hexa(rect['y'], 1))
+        allrects.append(rect);
         totalrects += 1;
         if (totalLeft == 0): break;
     
+    allrects.reverse()
+    random.shuffle(allrects)
+    for addrect in allrects:
+        words.append(hexa(addrect['width'], 1))
+        words.append(hexa(addrect['height'], 1))
+        words.append(hexa(addrect['x'], 1))
+        words.append(hexa(addrect['y'], 1))
+
     words[0] = hexa(width, 1)
     words[1] = hexa(height, 1)
     words[2] = hexa(totalrects, 2)[2:4]
@@ -347,11 +353,18 @@ def find_best_rect(masktable, width, height):
             if not (masktable[y][x]):
                 continue;
             # Expand in X
+            maxWidth = int(width);
+            maxHeight = int(height);
+            
+            maxWidth = 1000;
+            maxHeight = 1000;
             xStop = False;
             xHeight = 1;
             xWidth = 1;
             for xAddWidth in range(x+1, width):
                 if not (masktable[y][xAddWidth]):
+                    break;
+                if xWidth >= maxWidth:
                     break;
                 xWidth += 1;
             for xAddHeight in range(y+1, height):
@@ -360,6 +373,8 @@ def find_best_rect(masktable, width, height):
                         xStop = True;
                         break;
                 if xStop: break;
+                if xHeight >= maxHeight:
+                    break;
                 xHeight += 1;
             #print(f"({x},{y}) -> X: ({xWidth}, {xHeight} . {xWidth*xHeight}squ)")
             if (xWidth*xHeight > bestrectsq): #new champion
@@ -373,6 +388,8 @@ def find_best_rect(masktable, width, height):
             for yAddHeight in range(y+1, height):
                 if not (masktable[yAddHeight][x]):
                     break;
+                if yHeight >= maxHeight:
+                    break;
                 yHeight += 1;
             for yAddWidth in range(x+1, width):
                 for yAddHeight in range(y, y+yHeight):
@@ -380,6 +397,8 @@ def find_best_rect(masktable, width, height):
                         yStop = True;
                         break;
                 if yStop: break;
+                if yWidth >= maxWidth:
+                    break;
                 yWidth += 1;
             #print(f"({x},{y}) -> Y: ({yWidth}, {yHeight} . {yWidth*yHeight}squ)")
             if (yWidth*yHeight > bestrectsq): #new champion
