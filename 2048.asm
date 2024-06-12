@@ -24,6 +24,8 @@ DATASEG
 	constant_mergeScreenshakeFrame equ 1
 	constant_characterSpacing equ 3
 	constant_amountOfButtons equ 4
+	constant_sineWaveFrames equ 600
+	constant_transitionFrames equ 128
 
 	nullbyte equ 0ffh
 	nullword equ 0ffffh
@@ -72,7 +74,7 @@ DATASEG
 						 dw offset mask_number_0, offset mask_number_1, offset mask_number_2, offset mask_number_3, offset mask_number_4, offset mask_number_5, offset mask_number_6, offset mask_number_7, offset mask_number_8, offset mask_number_9
 						 dw 70 dup (mask_background_wtf)
 	internal_buttonIconOffsets dw offset mask_icon_restart, offset mask_icon_mainmenu, offset mask_icon_shake, offset mask_icon_animation
-
+	internal_logoDigitOffsets dw offset mask_logo_2, offset mask_logo_0, offset mask_logo_4, offset mask_logo_8
 
 	internal_keyActions dw 256 dup(nullword)
 	internal_mouseActions dw (5*20) dup(nullword)
@@ -85,6 +87,11 @@ DATASEG
 	internal_displayTest db '1932', 10 dup (0), 1 ; 1 stops the conversion immediately
 	internal_gameOverFrameAddCounter dw 0
 	;internal_totalRectMax dw 1
+
+	internal_sineWave db 0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,7,7,7,7,7,7,7,7,7,7,7,7,7,6,6,6,6,6,6,6,6,6,6,6,6,5,5,5,5,5,5,5,5,5,5,5,4,4,4,4,4,4,4,4,4,4,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-3,-3,-3,-3,-3,-3,-3,-3,-3,-3,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-6,-6,-6,-6,-6,-6,-6,-6,-6,-6,-6,-6,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7
+					  db -7,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-10,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-9,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-8,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-7,-6,-6,-6,-6,-6,-6,-6,-6,-6,-6,-6,-6,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-3,-3,-3,-3,-3,-3,-3,-3,-3,-3,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0
+
+
 
 	; Mouse stuff
 	internal_mouseLeftClick db boolFalse
@@ -114,11 +121,20 @@ DATASEG
 	rendering_shake_xOffset dw 0
 	rendering_shake_yOffset dw 0
 
+	rendering_transition_offsetMainMenu dw 0
+	rendering_transition_offsetPlaying dw 0
+
 	rendering_blockSpawnColors dw 9, 14, 19, 10 dup (60)
+	rendering_logoDigitPositions dw 64, 110, 161, 213
+	rendering_logoDigitColors dw 7, 9, 6, 5, 32, 34, 31, 30, 75, 14, 74, 10, 18, 19, 17, 15
+	rendering_sineFrameCounter dw 0
+
 
 
 	; Palettes
-	rendering_palette dq 2c2b47394f3f2b38h,3d262553333247h,8f8a0b655e0b554eh,195fb9e1309baf0eh,0e8572cbb4c217e46h,22195f8787f07c57h,7de82c4bbb21267eh,8e394e7287bdf057h,65d4f641a7cf3f6bh,89503d6e4f91faf8h,0c66eedba4ac69a44h,748944556e3da6fch,0fca690ed6e66c64ah,31bf9b2fab712fd0h,0eeff71e2e230c0bbh,75bbd1648aa85085h,63ffb5f6f48bdcf4h,526bcc374a952431h,0adad7f7f7f738ceeh,0eac4c4c4b7aca8adh,9ddb097bd2eaeah,0e1fd60cef80aaaf5h,76aaffff00d4ff50h,647dc1574776553ah,0ddffa0cfff5e5cc1h,0ffa6eeff3d9eff49h,0a95748351d1cffffh,269b68413fbf8378h,2b6e31006a42d251h,90745f8b6a547e4ch,9f9289h,66 dup(0h)
+	rendering_palette dq 2c2b47394f3f2b38h,3d262553333247h,8f8a0b655e0b554eh,195fb9e1309baf0eh,0e8572cbb4c217e46h,22195f8787f07c57h,7de82c4bbb21267eh,8e394e7287bdf057h,65d4f641a7cf3f6bh,89503d6e4f91faf8h,0c66eedba4ac69a44h,748944556e3da6fch,0fca690ed6e66c64ah,31bf9b2fab712fd0h,0eeff71e2e230c0bbh,75bbd1648aa85085h,63ffb5f6f48bdcf4h,526bcc374a952431h,0adad7f7f7f738ceeh,0eac4c4c4b7aca8adh,9ddb097bd2eaeah,0e1fd60cef80aaaf5h,76aaffff00d4ff50h,647dc1574776553ah,0ddffa0cfff5e5cc1h,0ffa6eeff3d9eff49h,0a95748351d1cffffh,269b68413fbf8378h,5165092e6a42d251h,8c63757e465f7732h,957985h,66 dup(0h)
+	rendering_transitioning dw boolFalse
+	rendering_transitionFrame dw 0
 
 	sprite_2 dw 2 dup(20h),0h,902h,14 dup(909h),209h,15 dup(909h),708h,909h,809h,13 dup(808h),707h,909h,14 dup(808h),707h,909h,5 dup(808h),3 dup(505h),805h,5 dup(808h),707h,909h,4 dup(808h),505h,605h,3 dup(606h),805h,4 dup(808h),707h,909h,3 dup(808h),508h,605h,5 dup(606h),4 dup(808h),707h,909h,3 dup(808h),505h,2 dup(606h),2 dup(808h),2 dup(606h),806h,3 dup(808h),707h,909h,3 dup(808h),605h,606h,4 dup(808h),606h,806h,3 dup(808h),707h,909h,3 dup(808h),608h,806h,4 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,9 dup(808h),605h,606h,3 dup(808h),707h,909h,8 dup(808h),508h,605h,806h,3 dup(808h),707h,909h,8 dup(808h),505h,606h,806h,3 dup(808h),707h,909h,7 dup(808h),508h,605h,606h,4 dup(808h),707h,909h,7 dup(808h),505h,606h,806h,4 dup(808h),707h,909h,6 dup(808h),508h,605h,606h,5 dup(808h),707h,909h
              dw 6 dup(808h),505h,606h,806h,5 dup(808h),707h,909h,5 dup(808h),508h,605h,606h,6 dup(808h),707h,909h,5 dup(808h),505h,606h,806h,6 dup(808h),707h,909h,4 dup(808h),508h,605h,606h,7 dup(808h),707h,909h,4 dup(808h),505h,606h,806h,7 dup(808h),707h,909h,3 dup(808h),508h,605h,606h,8 dup(808h),707h,909h,3 dup(808h),505h,2 dup(606h),4 dup(505h),805h,3 dup(808h),707h,909h,3 dup(808h),605h,7 dup(606h),3 dup(808h),707h,909h,3 dup(808h),608h,7 dup(606h),3 dup(808h),707h,909h,14 dup(808h),707h,909h,13 dup(808h),708h,707h,809h,15 dup(707h),702h,14 dup(707h),207h,4 dup(0h)
@@ -159,7 +175,6 @@ DATASEG
                        dq 4c4d4f4d4c4d4f4fh,0ffff4d4f4f4dffffh,0ff4c4d4f4dff4dffh,4c4d4f4f4d4f4f4dh,4d4d4d4f4d4d4f4dh,4c4d4f4f4d4c4d4dh,4d4f4f4d4c4d4f4dh,4d4f4f4d4c4d4d4ch,4d4f4f4d4d4d4f4dh,2 dup(4d4f4d4d4d4f4f4dh),4d4d4f4f4dffffffh,4f4f4f4d4c4d4f4fh,4f4dffffff4c4d4fh,4dff4d4f4f4d4d4fh,4d4d4f4f4d4d4f4fh,4f4f4dff4c4d4f4fh,4f4f4d4d4f4d4d4dh,0ffff4c4d4f4d4c4dh,4f4d4d4d4f4f4dffh,4f4f4d4d4f4f4d4dh,4f4d4c4d4f4f4d4dh,4f4d4d4d4f4f4d4dh,4f4d4c4d4f4f4d4dh,0ff4c4d4f4f4d4c4dh,4f4d4d4f4f4d4c4ch,4d4c4c4d4f4f4f4fh,4d4c4d4f4f4f4f4fh,0ff4c4d4f4f4f4f4fh,4d4f4f4f4f4dffffh,4c4d4f4f4dff4c4ch,4d4f4f4dffffff4ch,4f4dff4d4f4f4d4ch,4f4f4d4c4d4f4f4fh,4f4f4f4dffff4c4dh,4c4d4f4f4d4d4f4fh,0ffffffff4c4d4f4dh,4c4d4f4f4f4f4f4dh,4d4c4d4f4f4f4f4dh,4c4d4f4d4c4d4f4fh,4d4d4f4f4f4f4f4dh,4c4d4f4d4c4d4f4fh,0ffffff4c4c4d4dffh,4d4d4d4c4c4d4dffh,4d4dffff4c4c4d4dh,4d4dff4c4c4d4d4dh,0ffffff4c4c4d4d4dh
                        dq 0ff4c4c4d4d4d4dffh,0ffff4c4d4f4f4dffh,0ff4c4c4d4dffffffh,4d4d4dff4c4c4d4dh,4c4c4d4dff4c4c4dh,4d4d4d4d4dffffffh,4dff4c4c4d4d4c4ch,4dffffffffff4c4ch,4dff4c4c4d4d4d4dh,4d4dff4c4c4d4d4dh,4dff4c4c4dff4c4ch,4d4d4c4c4d4d4d4dh,0ffff4c4c4dff4c4ch,0ffffffffffff4c4ch,4c4c4c4cffff4c4ch,4c4c4cffffffff4ch,4c4c4cffffff4c4ch,0ffffffffffff4c4ch,4f4dffff4c4c4c4ch,0ffffffff4c4c4d4fh,4cffffff4c4cffffh,4c4c4c4cffffff4ch,0ffffff4c4cffffffh,0ff4c4c4c4c4cffffh,0ff4cffffff4c4cffh,4c4cffffffffffffh,4c4cffffff4c4c4ch,0ff4c4cffffff4c4ch,4c4cffffff4cffffh,0ff4c4cffff4c4c4ch,0ffffffffff4cffffh,5 dup(0ffffffffffffffffh),4c4d4f4f4dffffffh,0ffffffffffffff4ch,16 dup(0ffffffffffffffffh),0ffff4c4c4d4dffffh,17 dup(0ffffffffffffffffh),0ffffffffff4c4cffh,10 dup(0ffffffffffffffffh),0ffffffffffffh,2 dup(0h)
 
-
 	; Masks
 	mask_board dd 38080h,1807eh,1007e01h,17f7e01h,3 dup(0h)
 	mask_boardstripes dq 1f800200108080h,5f8002003f8002h,1f61021f1f00021fh,5f00021f3f00021fh,1f21021e5f61021fh,3f21021e1f41021eh,3f61021e3f41021eh,5f41021e5f21021eh,407f0101h,2 dup(0h)
@@ -170,7 +185,7 @@ DATASEG
 	mask_background_eight dq 206140300181818h,9090505020e1402h,10905040d100703h,310080212090405h,40406020e030503h,5120501020d0501h,160a01030f130301h,0c1001020c050201h,1410010213040102h,80d010103050101h,0d0401010a050101h,140501010e0d0101h,15100101h,2 dup(0h)
 	mask_background_exponent dq 6090506000f1818h,0c0606040a0f0803h,0b0701050b0d0302h,80f02020d120501h,80803010c0a0401h,0f0502010e0e0201h,0a070101070f0101h,101301010c0b0101h,2 dup(0h)
 	mask_background_plus dd 30c0ch,40c04h,4000404h,4080404h,3 dup(0h)
-	mask_background_shmulik dq 70f0d0400351850h,7450d0407390d04h,0a3f0a040a210a04h,0a2d08040b1b0904h,0a3409030c270804h,110403070b160903h,0a03030407050306h,0d0602060c4a0602h,122f02050a250205h,0f09020405400402h,0a130203124b0204h,0a1c01050a4b0203h,60f01030d490401h,645010306390103h,0c070103080b0301h,63f020110030301h,804020106420201h,0b1f01020a160102h,0d0401020c4c0102h,110b0102104c0201h,903010113340102h,91f010109140101h,0b4e010109260101h,0d4c01010c150101h,113101010e0c0101h,114d010111330101h,122e0101120b0101h,2 dup(0h)
+	mask_background_shmulik dq 0f09020400321850h,0c2708040a160102h,0a3f0a0407050306h,0a03030411040307h,0d490401122f0205h,60f01030a340903h,122e0101120b0101h,0a4b02030b4e0101h,64202010d060206h,63901030c150101h,0a2d08040a210a04h,0b1f0102114d0101h,645010307390d04h,13340102124b0204h,80b03010c070103h,0b160903063f0201h,104c02010d4c0101h,804020109030101h,110b010210030301h,0c4c0102070f0d04h,0b1b09040a250205h,7450d040c4a0602h,1133010105400402h,0e0c01010a130203h,113101010d040102h,0a1c0105h,2 dup(0h)
 	mask_background_smiley dq 10080208000e1818h,70f040207080402h,0e1103020d050302h,0e0703010d130202h,0f0f01020c040102h,0f0801010d040101h,100601010f130101h,10100101h,2 dup(0h)
 
 	dw offset mask_background_wtf
@@ -244,7 +259,7 @@ DATASEG
 	mask_clickanywhere dq 0a570101009912c9h,0c47040104bc0302h,756050104600204h,0c7b01010c0a0101h,4020201044a0302h,1c70902018a0b02h,0cb70101092f0402h,56409020b6a0101h,0d0e0209b20402h,5170101043a0101h,5e01010b980101h,0abe02010e460101h,0c31010100ae0e02h,66a01010d300105h,0c990101044e0402h,1202020c820101h,46a020507c30301h,49402050b090102h,0c25010105a30c02h,722030209020401h,5b8090202090202h,4a502040c170101h,52f010106530601h,56f0101087d0204h,59901010ebf0101h,67c010106180101h,15e0d020f450202h,946040106490701h,569010105540302h,4c3030206c20701h,0b940101066f0302h,5a903010cb40101h,0cc7020207440302h,4a4010105000602h,625010109480501h,1145010105350902h
                        dq 0c26020211be0101h,474010101040205h,47c020508b40204h,0c7c020605930101h,4180206057b0101h,4120a0205390902h,0c5002030c180206h,45a030209bf0401h,692060205240301h,0c0302070b570303h,855010106990602h,681030207ab0401h,0b7c010106230101h,0fbe0202097c0101h,7590402074a0301h,573090206160602h,200e0204b80101h,43f0101096a0101h,58101010b010101h,7bd030205aa0801h,0b03010110440201h,0ba5010106980101h,464010103010201h,86b020411a40101h,0c93010105b20101h,668060210bd0201h,0b240102043b0204h,0aa9020104750203h,53f090202020202h,0db30105048c0203h,0c7001010a450201h,0a23010204300205h,0cc00401067a0602h,0c34010108310204h,0c69010106940101h,0b18010104350101h
                        dq 0c8b020409520301h,0c94020504b30205h,425020209c10501h,4430302084f0402h,0ca502050c6a0206h,2 dup(0h)
-
+	
 	mask_logo_2 dq 210f010100483725h,107061407070107h,1b1d0103021b0102h,0a1901021f170105h,2c0c01032f010101h,61b140709070101h,1917010125120104h,2010020107140104h,261201032b050201h,205020230020722h,2117010328120101h,300004021d130201h,2907010108070103h,2b0c01041c140302h,2a0c010509220d02h,1d1d010120170104h,250b050728080201h,240c01011f110606h,2c04010108170101h,1622020103040101h,0b1a01011a1d0104h,4030604230d0201h,1e120101220e0303h,2e0c010107220201h,1a1605072d0c0102h,22170102000b010dh,3401020105200101h,2d0303030a040102h,31b03041b150101h,141a020123170101h,1c1d01020d240601h,3024060116190402h,1818020107180303h,2a06060605020401h,41f020127090302h
                 dq 260a01012e020201h,27120102h,2 dup(0h)
 	mask_logo_0 dq 0e020301004b382ch,92604022b1f0607h,30a01022d1e0201h,71b020433090102h,2a0c030130180103h,71f060707060508h,2b2602032c0d0101h,2d060409010e0102h,80e01030c032107h,310701012f100101h,321010104090303h,70e010606250101h,90e0102102a0401h,2702030104210303h,280a05022d050301h,826010131080203h,142a100211011602h,0d231e0705080201h,300f010507180103h,805040121220a01h,0a1e010106070101h,0d210502091d0102h,312104010c0b0202h,3610020c26210501h,242a0401340a0101h,2f2601010b280201h,0d2002012e1d0101h,360d0103020c0515h,250a030131220302h,52402012d260202h,2d0401010a0e0101h,0e0b020112220501h,2e0f0201361c0103h,2920020132240101h,180008012f1b0204h
@@ -252,7 +267,9 @@ DATASEG
 	mask_logo_4 dq 8130302002f382dh,0b1104071c0c0301h,1b010419060303h,5150606371e0104h,150907061f020101h,130b02010f150301h,110c0402140a0101h,119020921000801h,1512010102180101h,170802010f0e0606h,151004010b190101h,361c01081c0a0601h,0c10010104160101h,150f06010f140401h,2301071a1d030301h,1c0d010120010303h,1c0b04011b050101h,1511030102220101h,232c06010d0f0202h,31b330909120201h,23240708100d0101h,31702041c040706h,71401010f160101h,0b18030118070101h,2 dup(0h)
 	mask_logo_8 dq 121e0101005d3829h,171f0302160e0102h,30180103221e0101h,151b01011d220102h,2002010121010202h,221f040123090101h,10a061504050103h,2d0a010123000b03h,71c030303070101h,141c02011b080101h,370d010f2d1e0201h,1711070e30020101h,150a0204000d010eh,52202021e040101h,208030215030101h,2c270301120a0301h,1e17010333050101h,332301010b010801h,70a0106021f0102h,1619010c07030101h,0a1d0102090b0101h,310a061517230101h,3120050131230103h,131d030209260b01h,718010417210202h,1706020320201107h,1f09010522270301h,2f0c01012e010202h,201b01021c060303h,170501011e1a020bh,71f0f072c090a01h,31f04031f031406h,2e0a030206240101h,2b1f0b01081b0101h,2e1d01010b1e0101h
                 dq 2527070205041206h,90a03011d050201h,300c01041f250101h,3121040235080101h,422010121090103h,3223010208020d02h,140b01010c270501h,201d0203080a0104h,1c1f020333060203h,170908082f1b0204h,2209010220090104h,190701021b1f0101h,2 dup(0h)
-
+	mask_controls dq 130b0102006f236bh,1c19010119470202h,130402071d5d0301h,176906010d1c0102h,131c01021e2c0101h,1d480301135e040ch,2056010320230102h,173d010208190101h,2012010213010103h,350010217060102h,14030201173c0601h,11c0c03133c040ch,13120103183d0101h,1c050504204d0103h,14c0c0414480301h,1d5e040c0d120102h,14220c03201c0102h,1b3d020100160901h,191b010100120104h,754070218050204h,142d0c031d510101h,141c0c0301500206h,354010201560c04h,1d54010113560103h,1110c0318680101h,450010117160101h,1315020707500702h,152c0101202d0102h,1d3c040c143b0c01h,1323010217170205h,45501011f250208h,0b1b010114110c03h,11a0102151b0101h,1f0302021e1b0101h,175d020814140201h
+                  dq 132502081b140205h,146a0c0113500702h,20010102145d0301h,14000c031f140208h,134d010317410208h,0b17010213520202h,150a01011b680201h,1e500306132d0102h,1727060314560c04h,1c3e01010d560103h,1f09020200170803h,1c5002011c670101h,0c520202140b0c03h,200b01021b5d0208h,0c1402081a140101h,17670102004d010ch,182a0401195d0202h,1b410208001a0104h,11401021c550201h,0b1401010d4d0103h,144c0c0413540702h,2 dup(0h)
+	mask_controls_shadow dq 204802010018236bh,204c02010d4c0201h,0d5902012112020ch,215e020c20590201h,2123020c200d0201h,20220201203b0201h,0e4d020c206a0201h,205d02010d1e0201h,0e12020c0d110201h,202f020120000201h,20110201201e0201h,214d020c2101020ch,213c020ch,2 dup(0h)
 	
 	;   ____                        _                _      
 	;  / ___| __ _ _ __ ___   ___  | |    ___   __ _(_) ___ 
@@ -1029,13 +1046,21 @@ proc RenderScreen
 	call RenderPreLoop
 	call RenderShake
 	call RenderParticles
+	cmp [word ptr rendering_transitioning], boolTrue
+	je RenderScreen_Transition ;Render everything if transition is on
 	cmp [word ptr game_mode], gamemodeMainMenu
-	je RenderScreen_SkipGameRender
+	je RenderScreen_SkipGameRender ;All the non-main-menu rendering
+		RenderScreen_Transition:
 		call RenderBoard
 		call RenderBlocks
 		call RenderAnimation
 		call RenderGameUI
-	RenderScreen_SkipGameRender:
+		cmp [word ptr rendering_transitioning], boolFalse
+		je RenderScreen_SkipMenuRender ;Render everything if transition is on
+	RenderScreen_SkipGameRender: ; All the main menu rendering
+		call RenderMainMenuTexts
+		call RenderMainMenuLogo
+	RenderScreen_SkipMenuRender:
 	
 	call RenderCursor
 
@@ -1053,32 +1078,80 @@ proc RenderPreLoop
 		mov [word ptr rendering_animationFrame], nullword
 	RenderAnimation_DontResetFrame:
 
+	cmp [word ptr rendering_transitioning], boolTrue
+	jne RenderPreLoop_NotTransitioning
+		call RenderTransition
+	RenderPreLoop_NotTransitioning:
+
 	pop ax
 	ret
 endp RenderPreLoop
 
+proc RenderTransition
+	; Info: Called before every render, when transitioning.
+	push ax bx cx dx di si
+
+	inc [word ptr rendering_transitionFrame]
+	cmp [word ptr rendering_transitionFrame], constant_transitionFrames
+	jb RenderTransition_AddTransitionFrames
+		mov [word ptr rendering_transitioning], boolFalse
+		mov [word ptr rendering_transitionFrame], 0
+		mov [word ptr rendering_transition_offsetMainMenu], 0
+		mov [word ptr rendering_transition_offsetPlaying], 0
+		pop si di dx cx bx ax
+		ret	
+	RenderTransition_AddTransitionFrames:
+
+	mov bx, [word ptr rendering_transitionFrame]
+	shr bx, 1
+	add bx, offset internal_curveCache
+	xor ch, ch
+	mov cl, [byte ptr bx+128]
+	;add cl, [byte ptr bx]
+	sal cx, 1
+	mov dx, 192
+	sub dx, cx
+	mov ax, cx
+	neg bx
+	add bx, constant_transitionFrames
+	cmp [word ptr game_mode], gamemodePlaying
+	je RenderTransition_DontSwap
+		xor ax, dx
+		xor dx, ax
+		xor ax, dx
+	RenderTransition_DontSwap:
+	mov [word ptr rendering_transition_offsetMainMenu], ax
+	mov ax, dx
+	mov [word ptr rendering_transition_offsetPlaying], dx
+	;sub ax, [word ptr rendering_transitionFrame]
+
+	pop si di dx cx bx ax
+	ret	
+endp RenderTransition
+
 proc RenderBoard
 	; Info: Renders the board onto the buffer. Not including blocks.
-	push ax bx
+	push ax bx dx
 	
+	mov dx, [word ptr rendering_transition_offsetPlaying]
 	mov bx, boolTrue
 
 	mov ax, 2
-	push offset mask_boardborder 70 ax ax bx
+	push offset mask_boardborder 70 ax dx bx
 	call BufferMaskCenter ; Render the border shadow
 
 	xor ax, ax
-	push offset mask_board 3 ax ax bx
+	push offset mask_board 3 ax dx bx
 	call BufferMaskCenter ; Render the board body
 	
-	push offset mask_boardstripes 2 ax ax bx
+	push offset mask_boardstripes 2 ax dx bx
 	call BufferMaskCenter ; Render the board stripes
 	
-	push offset mask_boardborder 4 ax ax bx
+	push offset mask_boardborder 4 ax dx bx
 	call BufferMaskCenter ; Render the actual border
 
 
-	pop bx ax
+	pop dx bx ax
 	ret
 endp RenderBoard
 
@@ -1088,6 +1161,7 @@ proc RenderBlocks
 	mov cx, 16 ;Iterations
 	mov ax, 96 ;X
 	mov dx, 36 ;Y
+	add dx, [word ptr rendering_transition_offsetPlaying]
 	xor bx, bx ;Row Counter
 	
 	
@@ -1163,22 +1237,22 @@ proc RenderShake
 	jne RenderShake_DontShakeStuck
 		cmp [word ptr game_loseTimer], ((0*32)+constant_framesToShowStuckBlocks)
 		je RenderShake_ShakeStuck
-		cmp [word ptr game_loseTimer], ((1*32)+constant_framesToShowStuckBlocks)
-		je RenderShake_ShakeStuck
-		cmp [word ptr game_loseTimer], ((2*32)+constant_framesToShowStuckBlocks)
-		je RenderShake_ShakeStuck
-		cmp [word ptr game_loseTimer], ((3*32)+constant_framesToShowStuckBlocks)
-		je RenderShake_ShakeStuck
-		cmp [word ptr game_loseTimer], ((4*32)+constant_framesToShowStuckBlocks)
-		je RenderShake_ShakeStuck
-		cmp [word ptr game_loseTimer], ((5*32)+constant_framesToShowStuckBlocks)
-		je RenderShake_ShakeStuck
-		cmp [word ptr game_loseTimer], ((6*32)+constant_framesToShowStuckBlocks)
-		je RenderShake_ShakeStuck
+		; cmp [word ptr game_loseTimer], ((1*32)+constant_framesToShowStuckBlocks)
+		; je RenderShake_ShakeStuck
+		; cmp [word ptr game_loseTimer], ((2*32)+constant_framesToShowStuckBlocks)
+		; je RenderShake_ShakeStuck
+		; cmp [word ptr game_loseTimer], ((3*32)+constant_framesToShowStuckBlocks)
+		; je RenderShake_ShakeStuck
+		; cmp [word ptr game_loseTimer], ((4*32)+constant_framesToShowStuckBlocks)
+		; je RenderShake_ShakeStuck
+		; cmp [word ptr game_loseTimer], ((5*32)+constant_framesToShowStuckBlocks)
+		; je RenderShake_ShakeStuck
+		; cmp [word ptr game_loseTimer], ((6*32)+constant_framesToShowStuckBlocks)
+		; je RenderShake_ShakeStuck
 		
 		jmp RenderShake_DontShakeStuck
 		RenderShake_ShakeStuck:
-			push 5 3 3
+			push 20 1 3
 			call AnimationShake
 	RenderShake_DontShakeStuck:
 
@@ -1284,6 +1358,7 @@ proc RenderAnimation_Type0
 	
 	add bx, 96 ;X
 	add dx, 36 ;Y
+	add dx, [word ptr rendering_transition_offsetPlaying]
 
 	mov si, [word ptr di+2] ; Block Type
 	shl si, 1 ;Multiply the type by 2, because each offset is a word.
@@ -1300,6 +1375,7 @@ proc RenderAnimation_Type0
 		mov cx, [word ptr di+10] ; Intended Y
 		shl cx, 5
 		add cx, 36
+		add dx, [word ptr rendering_transition_offsetPlaying]
 		cmp [word ptr di+12], 0
 		jne RenderAnimation_Type0_MergeNotDir0 ; Up
 			add cx, 32
@@ -1341,6 +1417,7 @@ proc RenderAnimation_Type1
 	mov dx, [word ptr di+6]
 	shl dx, 5
 	add dx, 36 ;DX = Y
+	add dx, [word ptr rendering_transition_offsetPlaying]
 
 	mov si, [word ptr di+2] ; Block Type
 	shl si, 1 ;Multiply the type by 2, because each offset is a word.
@@ -1398,6 +1475,7 @@ proc RenderGameUI
 	push ax bx cx dx di si
 	mov ax, 242
 	mov bx, 45
+	add bx, [word ptr rendering_transition_offsetPlaying]
 	mov si, 61
 	
 	push offset mask_ui_score_outline si ax bx ; Shadow
@@ -1424,6 +1502,7 @@ proc RenderGameUI
 
 	mov ax, 271
 	mov bx, 67
+	add bx, [word ptr rendering_transition_offsetPlaying]
 	mov si, 2 ; Center
 	xor di, di ; Style Parameter of 0
 	push offset internal_displayTest
@@ -1509,6 +1588,7 @@ proc RenderButtons
 
 	mov ax, 64 ; Button X
 	mov bx, 46 ; Starting Button Y
+	add bx, [word ptr rendering_transition_offsetPlaying]
 	mov cx, constant_amountOfButtons ; Amt. of buttons
 	mov di, 0
 	RenderButtons_RenderLoop:
@@ -1571,6 +1651,7 @@ proc RenderGameOverUI
 	mov si, 71 ; Color
 	mov bx, 96 ; X
 	mov cx, 36 ; Y
+	add cx, [word ptr rendering_transition_offsetPlaying]
 	mov di, [word ptr rendering_gameOverFrame]
 	mov dx, 150
 	sub dx, di
@@ -1592,6 +1673,144 @@ proc RenderGameOverUI
 	pop si di dx cx bx ax
 	ret
 endp RenderGameOverUI
+
+proc RenderMainMenuTexts
+	; Info: Handles the main menu texts (caption and credits) rendering.
+	push ax bx cx dx di si
+
+	mov ax, 62
+	mov bx, 124
+	sub bx, [word ptr rendering_transition_offsetMainMenu]
+	cmp [word ptr game_mode], gamemodeMainMenu
+	je RenderMainMenuTexts_DontSubMore
+		mov si, [word ptr rendering_transitionFrame]
+		shr si, 2
+		sub bx, si
+	RenderMainMenuTexts_DontSubMore:
+	mov si, offset mask_clickanywhere
+	mov di, 71
+	push si di ax bx
+	call BufferMask ; shadow
+	dec ax
+	dec bx
+	inc di
+	push si di ax bx
+	call BufferMask ; body
+	; now the controls
+	mov ax, 110
+	add bx, 38 ; Y
+	mov di, 71
+	mov si, offset mask_controls_shadow
+	push si di ax bx
+	call BufferMask ; shadow
+	mov si, offset mask_controls
+	inc di
+	push si di ax bx
+	call BufferMask ; body
+
+	mov ax, 87
+	mov bx, 3
+	sub bx, [word ptr rendering_transition_offsetMainMenu]
+	mov si, offset sprite_madebykoren
+	push si ax bx
+	call BufferSprite
+
+	
+	pop si di dx cx bx ax
+	ret
+endp RenderMainMenuTexts
+
+proc RenderMainMenuLogo
+	; Info: Handles the main menu logo rendering.
+	push ax bx cx dx di si
+
+	xor si, si
+	mov di, offset rendering_logoDigitColors
+	mov bx, [word ptr rendering_sineFrameCounter]
+	shr bx, 2
+	mov cx, 4
+	RenderMainMenuLogo_DigitLoop:
+		mov dx, [si+rendering_logoDigitPositions] 
+		mov ax, 50
+
+		push cx bx si
+		shl si, 4
+		add bx, si
+		cmp bx, constant_sineWaveFrames
+		jb RenderMainMenuLogo_DontWrapSineFrame
+			sub bx, constant_sineWaveFrames
+		RenderMainMenuLogo_DontWrapSineFrame:
+		add al, [byte ptr bx+internal_sineWave]
+		push cx bx
+		cmp [word ptr rendering_transitioning], boolTrue
+		jmp RenderMainMenuLogo_DontReverseTransition
+			mov bx, [word ptr rendering_transitionFrame]
+			shr bx, 1
+			add bx, offset internal_curveCache
+			xor ch, ch
+			mov cl, [byte ptr bx+128]
+			add cl, [byte ptr bx]
+			sub ax, cx
+			cmp [word ptr game_mode], gamemodeMainMenu
+			jne RenderMainMenuLogo_DontReverseTransition
+				add ax, cx
+				sub ax, 128
+				add ax, cx
+				neg bx
+				add bx, constant_transitionFrames
+			RenderMainMenuLogo_DontReverseTransition:
+			sub ax, [word ptr rendering_transition_offsetMainMenu]
+			pop bx cx
+		pop si
+			mov cx, 101
+			sub cx, ax
+			shl si, 1
+			sub cx, si
+			shr si, 1
+		push [si+internal_logoDigitOffsets] cx [di] [di+4] dx ax ; Body Dither
+		push [si+internal_logoDigitOffsets] [di] dx ax ; Body
+			sub dx, 2
+			sub ax, 2
+		push [si+internal_logoDigitOffsets] [di+2] dx ax ; Light
+			add dx, 4
+			add ax, 8
+			xor ch, ch
+			mov cl, [byte ptr bx+internal_sineWave]
+			add cl, 10
+			shr cl, 2
+			sub ax, cx
+		push [si+internal_logoDigitOffsets] [di+6] dx ax ; Shadow
+
+		call BufferMask
+		call BufferMask
+		call BufferMask
+		call BufferMaskDither
+		pop bx cx
+		add si, 2
+		add di, 8
+		inc bx
+	loop RenderMainMenuLogo_GotoDigitLoop
+
+
+	inc [word ptr rendering_sineFrameCounter]
+	mov bx, [word ptr rendering_sineFrameCounter]
+	shr bx, 2
+	cmp bx, constant_sineWaveFrames
+	jb RenderMainMenuLogo_DontResetSineFrame
+		mov [word ptr rendering_sineFrameCounter], 0
+	RenderMainMenuLogo_DontResetSineFrame:
+	pop si di dx cx bx ax
+	ret
+
+	RenderMainMenuLogo_GotoDigitLoop:
+	jmp RenderMainMenuLogo_DigitLoop
+endp RenderMainMenuLogo
+
+
+
+
+
+
 
 
 
@@ -2888,12 +3107,20 @@ proc GameSetMode
 	mov [word ptr game_loseTimer], 0
 	cmp newGamemode, gamemodePlaying
 	jne GameSetMode_NotPlaying
+		cmp [word ptr game_mode], gamemodeMainMenu
+		jne GameSetMode_NotMainMenuToPlaying
+		;rendering_transitionFrame
+			mov [word ptr rendering_transitioning], boolTrue
+			mov [word ptr rendering_transitionFrame], 0
+		GameSetMode_NotMainMenuToPlaying:
 		; Set to playing
 		call GameRestart
 	GameSetMode_NotPlaying:
 
 	cmp newGamemode, gamemodeMainMenu
 	jne GameSetMode_NotMainMenu
+		mov [word ptr rendering_transitioning], boolTrue
+		mov [word ptr rendering_transitionFrame], 0
 		; Set to main menu
 	GameSetMode_NotMainMenu:
 
@@ -3569,6 +3796,13 @@ proc MainProcessMouse
 		mov [byte ptr internal_mouseLeftClick], 1 ; This'll add 1 if left clicked
 		je MainProcessMouse_LeftClickSkip
 		mov [byte ptr internal_mouseLeftClickFirst], 1
+		; janky code for detecting any click
+		cmp [word ptr game_mode], gamemodeMainMenu
+		jne MainProcessMouse_LeftClickSkip
+		cmp [word ptr rendering_transitioning], boolTrue
+		je MainProcessMouse_LeftClickSkip
+		push gamemodePlaying
+		call GameSetMode
 	MainProcessMouse_LeftClickSkip:
 
 	mov al, [byte ptr internal_mouseRightClick]
@@ -3602,6 +3836,8 @@ proc MainProcessMouse
 
 		cmp [word ptr di], nullword
 		je MainProcessMouse_NoProcedureOffset
+			cmp [word ptr rendering_transitioning], boolTrue
+			je MainProcessMouse_NoProcedureOffset
 			call [word ptr di] ; call the function offset
 		MainProcessMouse_NoProcedureOffset:
 		
@@ -3698,7 +3934,7 @@ start:
 
 	
 	; Initialization
-
+	mov [word ptr game_mode], gamemodeMainMenu
 	call InitializeInternal
 
 	mov ax, 13h
