@@ -12,7 +12,9 @@ Recreated the 2014 game in x86 assembly for a computer science project.
 
 
 # How to Run
-Use DOSBOX and enter the following lines: (everything with a = is optional, but recommended)
+1. Use [DOSBOX](https://www.dosbox.com/download.php?main=1) with [TASM](https://www.abandonwaredos.com/aw-download.php?tit=Turbo+Assembler+%28TASM%29&dlc=Zy9UQVNNLnppcA==&rem=5&gid=3586&zdi=NDUyMg==) installed and extracted to a directory.
+2. Place 2048.asm in the directory where TASM's BIN folder is.
+3. Assuming TASM is extracted to C:/, Enter the following lines: (everything with a = is optional, but recommended)
 ```
 mount c: c:\
 c:
@@ -25,3 +27,7 @@ tasm 2048.asm /zi
 tlink 2048.obj
 2048
 ```
+
+### MASM-TASM Alternative
+Alternatively, you can use the [MASM-TASM](https://marketplace.visualstudio.com/items?itemName=xsro.masm-tasm) extension for visual studio,
+in that case simply open the 2048.asm script, right click, and select "Run ASM Code", make sure your settings are fine (especially cycles = max).
