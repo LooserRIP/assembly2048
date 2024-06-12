@@ -11,7 +11,6 @@ import random
 
 def to_little_endian_bytes(value):
     """Convert an integer value to a little-endian byte representation."""
-    # Ensure value is within the range of a 16-bit unsigned integer.
     if not (0 <= value <= 65535):
         raise ValueError("Value must be between 0 and 65535")
     low_byte = value & 0xFF
@@ -30,7 +29,6 @@ def combinestringlist(word_list, perelement, substitute = "", hexFormat = False)
         word_list.append(substitute)
     
     final = []
-    # Iterate over the word list two items at a time
     for i in range(0, leng, perelement):
         add = "";
         addreverse = "";
@@ -66,7 +64,6 @@ def dup(strings):
             current_string = strings[i]
             count = 1
 
-    # Append the last processed string
     if count > 1:
         result.append(f"{count} dup({current_string})")
     else:
@@ -117,12 +114,10 @@ def optimaldefine(listofbytes, filename, character_size):
 
 
 def color_to_indices(image_path, color_list, dontCopy = False):
-    # Open the image
     imgpure = Image.open(image_path)
-    img = imgpure.convert('RGB')  # Ensure image is in RGB mode
-    imgalpha = imgpure.convert('RGBA')  # Ensure image is in RGB mode
+    img = imgpure.convert('RGB')
+    imgalpha = imgpure.convert('RGBA')
 
-    # Convert color codes to RGB tuples
     color_tuples = [tuple(int(c[i:i+2], 16) for i in (1, 3, 5)) for c in color_list]
 
     finals = []
@@ -132,7 +127,6 @@ def color_to_indices(image_path, color_list, dontCopy = False):
     i = 0;
     sprite_type = 0;
 
-    # Get image dimensions
     width, height = img.size
 
     for y in range(height):
@@ -169,7 +163,7 @@ def color_to_indices(image_path, color_list, dontCopy = False):
     numbers[5] = hexa(sprite_type, 2)[0:2]
     combined = combinestringlist(numbers, 8, "00", True);
     result_string = f"{optimaldefine(numbers, filename, 800)}"
-    # Copy result string to the clipboard
+    # copy the result
     print(f"Finished processing sprite '{Path(image_path).stem}'")
     if not (dontCopy):
         pyperclip.copy(result_string)
@@ -183,53 +177,38 @@ def rgb_to_hex(rgb):
     return f'#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}'
 
 def parse_png(file_path):
-    # Open image file
     img = Image.open(file_path)
 
-    # Verify image dimensions (16x16)
     if img.size != (16, 16):
         raise ValueError("Image dimensions must be 16x16")
 
-    # Convert image to RGB (to standardize the format)
     img = img.convert('RGB')
 
-    # Initialize an empty list to store the color hex codes
     color_hex_codes = []
 
-    # Traverse the image row by row
     for y in range(16):
         for x in range(16):
-            # Get the RGB value of the pixel
             rgb = img.getpixel((x, y))
-            # Convert RGB to Hex format and add to the list
             color_hex_codes.append(rgb_to_hex(rgb))
 
     return color_hex_codes
 
 def rgb_values_string(file_path):
-    # Open image file
     img = Image.open(file_path)
 
-    # Verify image dimensions (16x16)
     if img.size != (16, 16):
         raise ValueError("Image dimensions must be 16x16")
 
-    # Convert image to RGB (to standardize the format)
     img = img.convert('RGB')
 
-    # Initialize an empty list to store the RGB values
     final = [];
-    # Traverse the image row by row
     for y in range(16):
         rgb_values = []
         for x in range(16):
-            # Get the RGB value of the pixel
             rgb = img.getpixel((x, y))
-            # Add each component of the RGB value to the list
             final.extend(map(lambda x: hexa(x, 1), rgb))
         #final.append(','.join(dup(list(map(str, rgb_values)))))
 
-    # Convert the list of RGB values to a comma-separated string
     return f"{optimaldefine(final, 'rendering_palette', 600)}"
 
 def open_file_selector_sprite():
@@ -250,11 +229,10 @@ def rgb_to_hex(rgb):
     return '#{:02x}{:02x}{:02x}'.format(*rgb)
 
 def mask_to_rects(image_path):
-    # Open the image
     detectedColors = [];
     imgpure = Image.open(image_path)
-    imgalpha = imgpure.convert('RGBA')  # Ensure image is in RGB mode
-    img = imgpure.convert('RGB')  # Ensure image is in RGB mode
+    imgalpha = imgpure.convert('RGBA') 
+    img = imgpure.convert('RGB')  
 
 
     words = []
@@ -509,20 +487,12 @@ def extract_palette_from_sprites():
         file_list.append(file)
     if len(file_list) == 0:
         return;
-
-    # Convert list to ensure only 256 colors max, maintaining the order
     if len(ordered_palette) > 256:
         ordered_palette = ordered_palette[:256]
-
-    # Fill the rest with black if fewer than 256 colors
     while len(ordered_palette) < 256:
         ordered_palette.append((0, 0, 0, 255))
-
-    # Create a 16x16 texture
     texture = Image.new('RGBA', (16, 16))
     texture.putdata(ordered_palette)
-
-    # Save the resulting texture
     shutil.copyfile(
         f"{os.path.dirname(os.path.realpath(__file__))}/palette.png", 
         f"{os.path.dirname(os.path.realpath(__file__))}/Backups/palette{str(int(time.time()))}.png"
