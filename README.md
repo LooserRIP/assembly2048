@@ -1,5 +1,5 @@
 # 2048 in x86 Assembly
-Recreated the 2014 game in x86 assembly for a computer science project.
+Recreated the 2014 game in x86 assembly over the course of ~12 days for a computer science project.
 ![image](https://github.com/LooserRIP/assembly2048/assets/46068464/25d40dbd-3063-4644-810e-24912e360b6a)
 
 # Features
@@ -8,7 +8,7 @@ Recreated the 2014 game in x86 assembly for a computer science project.
 - Camera Shake
 - Mouse interactions
 - Buttons for toggling camerashake/animation
-- UI Animations (Logo, background particles, game over, menu transitions)
+- UI Animations (logo, background particles, game over, menu transitions)
 
 
 # How to Run
@@ -30,4 +30,7 @@ tlink 2048.obj
 
 ### MASM-TASM Alternative
 Alternatively, you can use the [MASM-TASM](https://marketplace.visualstudio.com/items?itemName=xsro.masm-tasm) extension for visual studio,
-in that case simply open the 2048.asm script, right click, and select "Run ASM Code", make sure your settings are fine (especially cycles = max).
+in that case simply:
+1. Open the 2048.asm script in VSCode
+2. Right click, and select "Run ASM Code"
+3. (Optional) Make sure your settings are fine (if you are using DOSBOX-X, you can modify them from within the window, if not you can check the extension's settings and add to the default configuration).
